@@ -1,1 +1,39 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: "Newsreader", serif;
+  
+  /* CLAUDE LIGHT MODE - Warm "Paper" Aesthetic */
+  --color-app: #ffffff;         /* Pure white chat area */
+  --color-sidebar: #f5f4ef;     /* Warm off-white rail */
+  --color-card: #ffffff;        /* White input box */
+  --color-primary: #1a1918;     /* Warm black text */
+  --color-secondary: #747067;   /* Earthy gray icons */
+  --color-border-main: #e6e4df; /* Soft warm border */
+  --color-border-hover: #c7c5c0;/* Hover state border */
+  --color-accent: #d97a58;      /* Claude's Terracotta Orange */
+}
+
+.dark {
+  /* CLAUDE DARK MODE - Earthy Charcoal Aesthetic */
+  --color-app: #252422;         /* Warm dark gray chat area */
+  --color-sidebar: #1d1c1a;     /* Darker earthy rail */
+  --color-card: #2f2e2b;        /* Slightly lighter input box */
+  --color-primary: #e6e4df;     /* Soft warm text (not pure white) */
+  --color-secondary: #908d85;   /* Muted earthy icons */
+  --color-border-main: #42403d; /* Subtle dark border */
+  --color-border-hover: #63615c;/* Hover state border */
+  --color-accent: #d97a58;      /* Claude's Terracotta Orange */
+}
+
+body {
+  background-color: var(--color-app);
+  color: var(--color-primary);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}

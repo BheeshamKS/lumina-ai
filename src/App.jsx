@@ -45,7 +45,7 @@ function App() {
       {/* 1. SIDEBAR */}
       <aside
         className={`${
-          sidebarOpen ? "w-64" : "w-[68px]"
+          sidebarOpen ? "w-64" : "w-17"
         } border-r border-border-main bg-card flex flex-col transition-all duration-300 shrink-0 overflow-hidden`}
       >
         <div className="py-3 flex flex-col h-full">
@@ -99,7 +99,7 @@ function App() {
               <div
                 className={`flex items-center ${sidebarOpen ? "justify-start px-2" : "justify-center"} py-2 hover:bg-card-hover rounded-xl cursor-pointer transition-colors group`}
               >
-                <div className="w-8 h-8 bg-[#2d2b29] dark:bg-[#e6e4df] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 shadow-sm">
+                <div className="w-8 h-8 bg-[#2c2a27] dark:bg-[#e6e4df] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 shadow-sm">
                   BK
                 </div>
                 {sidebarOpen && (

@@ -4,28 +4,49 @@
 
 @theme {
   --font-serif: "Newsreader", serif;
+  --font-sans: "Inter", sans-serif;
   
-  /* CLAUDE LIGHT MODE - Warm "Paper" Aesthetic */
-  --color-app: #ffffff;         /* Pure white chat area */
-  --color-sidebar: #f5f4ef;     /* Warm off-white rail */
-  --color-card: #ffffff;        /* White input box */
-  --color-primary: #1a1918;     /* Warm black text */
-  --color-secondary: #747067;   /* Earthy gray icons */
-  --color-border-main: #e6e4df; /* Soft warm border */
-  --color-border-hover: #c7c5c0;/* Hover state border */
-  --color-accent: #d97a58;      /* Claude's Terracotta Orange */
+  /* CLAUDE LIGHT MODE */
+  --color-app: #faf9f5;          
+  
+  /* The Global "Card" (formerly sidebar/chips/menus) */
+  --color-card: #f9f8f4;  
+  --color-card-hover: #f0eee6;     
+  --color-card-text: #3D3D3A;      
+  --color-card-text-hover: #141413; 
+  
+  /* The Input Box */
+  --color-inputcard: #ffffff;         
+  
+  --color-primary: #2d2b29;       
+  --color-secondary: #7e7a75;    
+  --color-placeholder: #73726c;   
+
+  --color-border-main: #e5e3de;   
+  --color-border-hover: #cbc9c4;  
+  --color-accent: #d97757;        
 }
 
 .dark {
-  /* CLAUDE DARK MODE - Earthy Charcoal Aesthetic */
-  --color-app: #252422;         /* Warm dark gray chat area */
-  --color-sidebar: #1d1c1a;     /* Darker earthy rail */
-  --color-card: #2f2e2b;        /* Slightly lighter input box */
-  --color-primary: #e6e4df;     /* Soft warm text (not pure white) */
-  --color-secondary: #908d85;   /* Muted earthy icons */
-  --color-border-main: #42403d; /* Subtle dark border */
-  --color-border-hover: #63615c;/* Hover state border */
-  --color-accent: #d97a58;      /* Claude's Terracotta Orange */
+  /* CLAUDE DARK MODE */
+  --color-app: #262624;         
+  
+  /* The Global "Card" */
+  --color-card: #252523;    
+  --color-card-hover: #141413;
+  --color-card-text: #C2C0B6;
+  --color-card-text-hover: #faf9f5; 
+  
+  /* The Input Box */
+  --color-inputcard: #30302e;        
+  
+  --color-primary: #e6e4df;     
+  --color-secondary: #908d85;   
+  --color-placeholder: #9C9A92;
+
+  --color-border-main: #41413D; 
+  --color-border-hover: #555450;
+  --color-accent: #d97757;      
 }
 
 body {

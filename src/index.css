@@ -1,9 +1,15 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Copernicus';
+  src: url('./fonts/CopernicusTrial-Book.ttf') format('truetype');
+  font-style: normal;
+  font-display: swap;
+}
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-serif: "Newsreader", serif;
+  --font-serif: "Copernicus", Georgia, serif;
   --font-sans: "Inter", sans-serif;
   
   /* CLAUDE LIGHT MODE */
@@ -34,7 +40,7 @@
   /* The Global "Card" */
   --color-card: #252523;    
   --color-card-hover: #141413;
-  --color-card-text: #C2C0B6;
+  --color-card-text: #c2c0b6;
   --color-card-text-hover: #faf9f5; 
   
   /* The Input Box */
@@ -44,7 +50,7 @@
   --color-secondary: #908d85;   
   --color-placeholder: #9C9A92;
 
-  --color-border-main: #41413D; 
+  --color-border-main: #373733; 
   --color-border-hover: #555450;
   --color-accent: #d97757;      
 }

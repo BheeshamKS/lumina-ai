@@ -210,12 +210,49 @@ function App() {
                     </div>
                   ) : (
                     // AI MESSAGE: Rendered with React Markdown
-                    <div className="self-start w-full text-outputmassage font-serif text-[16px] tracking-[-0.015em] leading-relaxed mt-2">
+                    <div className="self-center w-full max-w-[90%] md:max-w-175 text-outputmassage font-serif text-[16px] tracking-[-0.05em] leading-relaxed mt-2">
                       <ReactMarkdown
                         components={{
                           // Paragraphs
                           p: ({ node, ...props }) => (
-                            <p className="mb-4 last:mb-0" {...props} />
+                            <p className="mb-5 last:mb-0" {...props} />
+                          ),
+
+                          // Headings
+                          h1: ({ node, ...props }) => (
+                            <h1
+                              className="text-[26px] font-bold mb-4 mt-8 leading-snug tracking-tight"
+                              {...props}
+                            />
+                          ),
+                          h2: ({ node, ...props }) => (
+                            <h2
+                              className="text-[20px] font-bold mb-4 mt-8 leading-snug tracking-tight"
+                              {...props}
+                            />
+                          ),
+                          h3: ({ node, ...props }) => (
+                            <h3
+                              className="text-[17px] font-bold mb-3 mt-6 leading-snug tracking-tight"
+                              {...props}
+                            />
+                          ),
+
+                          // Lists
+                          ul: ({ node, ...props }) => (
+                            <ul
+                              className="list-disc pl-5 mb-5 space-y-2 marker:text-outputmassage/40"
+                              {...props}
+                            />
+                          ),
+                          ol: ({ node, ...props }) => (
+                            <ol
+                              className="list-decimal pl-5 mb-5 space-y-2 marker:text-outputmassage/40"
+                              {...props}
+                            />
+                          ),
+                          li: ({ node, ...props }) => (
+                            <li className="pl-1.5" {...props} />
                           ),
 
                           // Bold text
@@ -223,67 +260,98 @@ function App() {
                             <strong className="font-semibold" {...props} />
                           ),
 
-                          // Bulleted and Numbered Lists
-                          ul: ({ node, ...props }) => (
-                            <ul
-                              className="list-disc pl-6 mb-4 space-y-2 marker:text-outputmassage/70"
-                              {...props}
-                            />
-                          ),
-                          ol: ({ node, ...props }) => (
-                            <ol
-                              className="list-decimal pl-6 mb-4 space-y-2 marker:text-outputmassage/70"
-                              {...props}
-                            />
-                          ),
-                          li: ({ node, ...props }) => (
-                            <li className="pl-1" {...props} />
-                          ),
-
-                          // Headings
-                          h1: ({ node, ...props }) => (
-                            <h1
-                              className="text-2xl font-bold mb-4 mt-6"
-                              {...props}
-                            />
-                          ),
-                          h2: ({ node, ...props }) => (
-                            <h2
-                              className="text-xl font-bold mb-3 mt-5"
-                              {...props}
-                            />
-                          ),
-                          h3: ({ node, ...props }) => (
-                            <h3
-                              className="text-lg font-bold mb-3 mt-4"
+                          // Blockquotes (The vertical line on the left)
+                          blockquote: ({ node, ...props }) => (
+                            <blockquote
+                              className="border-l-[4px] border-[#41413D] pl-4 py-0.5 my-6 text-outputmassage/70 italic"
                               {...props}
                             />
                           ),
 
-                          // Inline Code (e.g., `const x = 1`)
-                          code: ({ node, inline, ...props }) =>
-                            inline ? (
+                          // Horizontal Rules (---)
+                          hr: ({ node, ...props }) => (
+                            <hr
+                              className="border-t border-border-main my-8"
+                              {...props}
+                            />
+                          ),
+
+                          // Links
+                          a: ({ node, ...props }) => (
+                            <a
+                              className="text-accent hover:underline underline-offset-2"
+                              {...props}
+                            />
+                          ),
+
+                          // Code Blocks & Inline Code
+                          code(props) {
+                            const { children, className, node, ...rest } =
+                              props;
+                            const match = /language-(\w+)/.exec(
+                              className || "",
+                            );
+
+                            // 1. Multi-line Code Block
+                            if (match || String(children).includes("\n")) {
+                              const language = match ? match[1] : "";
+                              return (
+                                <div className="my-6 rounded-xl overflow-hidden bg-[#1f1e1d] border border-border-main font-sans shadow-sm group">
+                                  {/* Header Row (Language & Copy Button) */}
+                                  <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                                    <span className="text-[13px] text-placeholder font-medium lowercase">
+                                      {language}
+                                    </span>
+
+                                    {/* Simple Copy Icon (Fades in on hover just like Claude) */}
+                                    <button className="text-placeholder hover:text-[#e6e4df] transition-colors opacity-0 group-hover:opacity-100">
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      >
+                                        <rect
+                                          x="9"
+                                          y="9"
+                                          width="13"
+                                          height="13"
+                                          rx="2"
+                                          ry="2"
+                                        ></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                      </svg>
+                                    </button>
+                                  </div>
+                                  {/* The Code Body */}
+                                  <div className="px-4 pb-4 overflow-x-auto text-[14px] leading-relaxed text-[#e6e4df] font-mono">
+                                    <code className={className} {...rest}>
+                                      {children}
+                                    </code>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // 2. Inline Code (e.g. `const x = 1` inside a paragraph)
+                            return (
                               <code
-                                className="bg-border-main/50 px-1.5 py-0.5 rounded-md font-sans text-[14px] text-outputmassage"
-                                {...props}
-                              />
-                            ) : (
-                              <code {...props} />
-                            ),
+                                className="bg-[#e5e3de] dark:bg-[#32312f] text-[#c25c47] dark:text-[#f28b77] px-[5px] py-[2px] rounded-[6px] font-mono text-[13.5px] border border-transparent dark:border-[#41413D]/50"
+                                {...rest}
+                              >
+                                {children}
+                              </code>
+                            );
+                          },
 
-                          // Code Blocks (e.g., ```javascript ... ```)
-                          pre: ({ node, ...props }) => (
-                            <div className="my-5 rounded-xl overflow-hidden bg-[#1e1e1e] border border-border-main shadow-sm font-sans">
-                              <div className="flex items-center px-4 py-2 bg-[#2d2d2d] border-b border-[#404040]">
-                                <span className="text-[12px] text-[#a0a0a0] font-medium uppercase tracking-wider">
-                                  Code
-                                </span>
-                              </div>
-                              <pre
-                                className="p-4 overflow-x-auto text-[14px] leading-relaxed text-[#e6e4df]"
-                                {...props}
-                              />
-                            </div>
+                          // Strip out the default <pre> wrapper to prevent double-backgrounds
+                          pre: ({ node, children, ...props }) => (
+                            <>{children}</>
                           ),
                         }}
                       >

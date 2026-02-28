@@ -22,7 +22,8 @@
   --color-card-text-hover: #141413; 
   
   /* The Input Box */
-  --color-inputcard: #ffffff;         
+  --color-inputcard: #ffffff;    
+  --color-outputmassage: #141413;     
   
   --color-primary: #2d2b29;       
   --color-secondary: #7e7a75;    
@@ -44,7 +45,8 @@
   --color-card-text-hover: #faf9f5; 
   
   /* The Input Box */
-  --color-inputcard: #30302e;        
+  --color-inputcard: #30302e;
+  --color-outputmassage: #faf9f5;
   
   --color-primary: #e6e4df;     
   --color-secondary: #908d85;   
@@ -63,4 +65,32 @@ body {
 
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* --- CUSTOM FLOATING SCROLLBAR --- */
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-main) transparent;
+}
+
+/* For Chrome, Edge, and Safari */
+*::-webkit-scrollbar {
+  width: 12px; /* Total width of the scrollbar space */
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent; /* Invisible track */
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-secondary); /* The actual pill color */
+  border-radius: 20px; /* Makes it a rounded pill */
+  /* This border matches your app background, making the scrollbar look incredibly thin and "floating" away from the edge */
+  border: 4px solid var(--color-app); 
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-placeholder); /* Slightly lighter/darker when hovered */
 }

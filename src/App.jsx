@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   Plus,
@@ -15,6 +16,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+// Initialize the Gemini API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 function App() {
@@ -51,36 +53,30 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // THE REAL API CALL
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
     const userText = input.trim();
     setInput("");
 
-    // 1. Add user message to UI
     setMessages((prev) => [...prev, { role: "user", content: userText }]);
     setIsLoading(true);
 
     try {
-      // 2. Select the model (Flash is the fastest for chat)
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      // 3. Format previous messages so the AI remembers the conversation context
       const history = messages.map((msg) => ({
         role: msg.role === "user" ? "user" : "model",
         parts: [{ text: msg.content }],
       }));
 
-      // 4. Start the chat session and send the new message
       const chat = model.startChat({ history });
       const result = await chat.sendMessage(userText);
       const responseText = result.response.text();
 
-      // 5. Add AI response to UI
       setMessages((prev) => [...prev, { role: "ai", content: responseText }]);
     } catch (error) {
-      console.error("Error communicating with Gemini:", error);
+      console.error("Error communicating with API:", error);
       setMessages((prev) => [
         ...prev,
         {
@@ -200,52 +196,125 @@ function App() {
           </button>
         </div>
 
-        {/* Chat Area (Only renders if messages exist) */}
+        {/* Chat Area */}
         {messages.length > 0 && (
-          <div className="w-full max-w-3xl flex-1 overflow-y-auto pt-24 pb-32 px-4 space-y-8 no-scrollbar">
-            {messages.map((msg, idx) => (
-              <div key={idx} className="flex gap-4 text-primary w-full">
-                <div className="shrink-0 mt-1">
+          <div className="w-full flex-1 overflow-y-auto pt-24 pb-40 flex flex-col items-center">
+            {/* INNER CENTERED COLUMN */}
+            <div className="w-full max-w-3xl px-4 space-y-10">
+              {messages.map((msg, idx) => (
+                <div key={idx} className="flex flex-col w-full">
                   {msg.role === "user" ? (
-                    <div className="w-8 h-8 bg-[#2c2a27] dark:bg-[#e6e4dfa7] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[16px] font-semibold">
-                      BK
+                    // USER MESSAGE
+                    <div className="self-center md:self-end bg-[#2d2b29] dark:bg-[#30302e] text-[#e6e4df] px-5 py-4 rounded-2xl max-w-[90%] md:max-w-[85%] text-[16px] leading-relaxed shadow-sm">
+                      {msg.content}
                     </div>
                   ) : (
-                    <div className="w-8 h-8 bg-transparent rounded-xl flex items-center justify-center">
-                      <Zap size={22} className="text-accent fill-accent/20" />
+                    // AI MESSAGE: Rendered with React Markdown
+                    <div className="self-start w-full text-outputmassage font-serif text-[16px] tracking-[-0.015em] leading-relaxed mt-2">
+                      <ReactMarkdown
+                        components={{
+                          // Paragraphs
+                          p: ({ node, ...props }) => (
+                            <p className="mb-4 last:mb-0" {...props} />
+                          ),
+
+                          // Bold text
+                          strong: ({ node, ...props }) => (
+                            <strong className="font-semibold" {...props} />
+                          ),
+
+                          // Bulleted and Numbered Lists
+                          ul: ({ node, ...props }) => (
+                            <ul
+                              className="list-disc pl-6 mb-4 space-y-2 marker:text-outputmassage/70"
+                              {...props}
+                            />
+                          ),
+                          ol: ({ node, ...props }) => (
+                            <ol
+                              className="list-decimal pl-6 mb-4 space-y-2 marker:text-outputmassage/70"
+                              {...props}
+                            />
+                          ),
+                          li: ({ node, ...props }) => (
+                            <li className="pl-1" {...props} />
+                          ),
+
+                          // Headings
+                          h1: ({ node, ...props }) => (
+                            <h1
+                              className="text-2xl font-bold mb-4 mt-6"
+                              {...props}
+                            />
+                          ),
+                          h2: ({ node, ...props }) => (
+                            <h2
+                              className="text-xl font-bold mb-3 mt-5"
+                              {...props}
+                            />
+                          ),
+                          h3: ({ node, ...props }) => (
+                            <h3
+                              className="text-lg font-bold mb-3 mt-4"
+                              {...props}
+                            />
+                          ),
+
+                          // Inline Code (e.g., `const x = 1`)
+                          code: ({ node, inline, ...props }) =>
+                            inline ? (
+                              <code
+                                className="bg-border-main/50 px-1.5 py-0.5 rounded-md font-sans text-[14px] text-outputmassage"
+                                {...props}
+                              />
+                            ) : (
+                              <code {...props} />
+                            ),
+
+                          // Code Blocks (e.g., ```javascript ... ```)
+                          pre: ({ node, ...props }) => (
+                            <div className="my-5 rounded-xl overflow-hidden bg-[#1e1e1e] border border-border-main shadow-sm font-sans">
+                              <div className="flex items-center px-4 py-2 bg-[#2d2d2d] border-b border-[#404040]">
+                                <span className="text-[12px] text-[#a0a0a0] font-medium uppercase tracking-wider">
+                                  Code
+                                </span>
+                              </div>
+                              <pre
+                                className="p-4 overflow-x-auto text-[14px] leading-relaxed text-[#e6e4df]"
+                                {...props}
+                              />
+                            </div>
+                          ),
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
                     </div>
                   )}
                 </div>
-                <div className="flex-1 leading-relaxed text-[17px] mt-1.5 whitespace-pre-wrap">
-                  {msg.content}
+              ))}
+
+              {isLoading && (
+                <div className="self-start w-full text-outputmassage font-serif text-[16px] tracking-[-0.015em] opacity-50 mt-2">
+                  Thinking...
                 </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex gap-4 text-primary w-full opacity-50">
-                <div className="shrink-0 mt-1">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center animate-pulse">
-                    <Zap size={22} className="text-accent fill-accent/20" />
-                  </div>
-                </div>
-                <div className="flex-1 text-[17px] mt-1.5">Thinking...</div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
+              )}
+              <div ref={chatEndRef} />
+            </div>
           </div>
         )}
 
-        {/* Input Wrapper (Dynamically switches from Center to Bottom) */}
+        {/* Input Wrapper */}
         <div
           className={
             messages.length === 0
               ? "w-full max-w-176.75 flex-1 flex flex-col justify-center px-4"
-              : "w-full max-w-197.5 absolute bottom-6 left-1/2 -translate-x-1/2 px-4"
+              : "w-full max-w-197.5 absolute bottom-0 left-1/2 -translate-x-1/2 px-4 pb-6 pt-4 bg-gradient-to-t from-app via-app to-transparent"
           }
         >
-          {/* Main Relative Container for the Home Screen Layout */}
+          {/* Main Relative Container */}
           <div className="relative w-full">
-            {/* Greeting - Absolutely positioned ABOVE the input box so it doesn't push it down */}
+            {/* Greeting */}
             {messages.length === 0 && (
               <div className="absolute bottom-full left-0 w-full mb-10 text-center">
                 <Zap
@@ -258,14 +327,18 @@ function App() {
               </div>
             )}
 
-            {/* TRUE CENTERED INPUT BOX - The only element taking up structural space */}
+            {/* INPUT BOX */}
             <div className="relative bg-inputcard rounded-[22px] px-3 py-2 border border-border-main hover:border-border-hover focus-within:border-border-hover focus-within:shadow-[0_0_40px_-10px_rgba(0,0,0,0.05)] dark:focus-within:shadow-[0_0_40px_-10px_rgba(0,0,0,0.2)] transition-all duration-200 shadow-sm z-10">
               <textarea
                 ref={textAreaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="How can I help you today?"
+                placeholder={
+                  messages.length === 0
+                    ? "How can I help you today?"
+                    : "Reply..."
+                }
                 rows="1"
                 className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[16px] leading-relaxed text-primary placeholder-placeholder max-h-100 ${
                   messages.length === 0 ? "min-h-15" : "min-h-10"
@@ -284,11 +357,10 @@ function App() {
                   </div>
                   <div className="w-px h-3 bg-border-main" />
 
-                  {/* Submit button dynamically appears when you type */}
                   {input.trim() ? (
                     <button
                       onClick={handleSend}
-                      className="p-1.5 bg-accent rounded-lg text-white hover:opacity-90 transition-opacity"
+                      className="p-1.5 bg-accent rounded-lg text-white hover:opacity-90 transition-opacity cursor-pointer"
                     >
                       <ArrowRight size={16} />
                     </button>
@@ -301,7 +373,15 @@ function App() {
               </div>
             </div>
 
-            {/* Chips - Absolutely positioned BELOW the input box */}
+            {/* Disclaimer Text - Only shows when chatting */}
+            {messages.length > 0 && (
+              <div className="text-center mt-2 text-[11px] text-placeholder tracking-wide">
+                Lumina is AI and can make mistakes. Please double-check
+                responses.
+              </div>
+            )}
+
+            {/* Chips - Only show on empty state */}
             {messages.length === 0 && input.trim() === "" && (
               <div className="absolute top-full left-0 w-full flex flex-wrap justify-center gap-2.5 pt-8 animate-in fade-in duration-300">
                 <Chip icon={<PenLine size={16} />} label="Write" />
@@ -317,7 +397,7 @@ function App() {
   );
 }
 
-// Sub-components
+// Sub-components remain unchanged
 const SidebarItem = ({ icon, label, isOpen }) => (
   <div
     className={`flex items-center ${isOpen ? "justify-start px-3" : "justify-center"} py-2.5 hover:bg-card-hover rounded-xl cursor-pointer text-card-text hover:text-card-text-hover transition-colors`}

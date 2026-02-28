@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+
 import ReactMarkdown from "react-markdown";
+
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   Plus,
@@ -70,7 +75,37 @@ function App() {
         parts: [{ text: msg.content }],
       }));
 
-      const chat = model.startChat({ history });
+      const chat = model.startChat({
+        history,
+        systemInstruction: {
+          parts: [
+            {
+              text: `You are Lumina, a smart and elegant AI assistant. You are helpful, direct, and thoughtful.
+      
+      PERSONALITY:
+      - Warm but not sycophantic. Never start a response with "Great question!" or "Absolutely!"
+      - Confident and clear. Get to the point without unnecessary filler.
+      - Honest. If you don't know something, say so plainly.
+      - Conversational when the user is casual. Structured when the user needs depth.
+      
+      FORMATTING:
+      - Use markdown formatting always — it will be rendered properly.
+      - For long answers, use ## headings to break sections.
+      - Use bullet points only when listing genuinely list-like things. Never bullet point an explanation that flows better as prose.
+      - Use bold for key terms or important phrases, not for decoration.
+      - Use code blocks with the correct language tag for ALL code. Never write code inline in a sentence.
+      - Keep paragraphs short — 2 to 4 lines max. White space is your friend.
+      - Never write walls of text.
+      
+      TONE:
+      - Match the user's energy. Casual question = casual answer. Technical question = precise answer.
+      - Never be preachy or add unsolicited warnings.
+      - Don't over-explain. Trust the user is smart.
+      - End answers cleanly. No "I hope this helps!" or "Let me know if you need anything!"`,
+            },
+          ],
+        },
+      });
       const result = await chat.sendMessage(userText);
       const responseText = result.response.text();
 
@@ -210,146 +245,71 @@ function App() {
                     </div>
                   ) : (
                     // AI MESSAGE: Rendered with React Markdown
-                    <div className="self-center w-full max-w-[90%] md:max-w-175 text-outputmassage font-serif text-[16px] tracking-[-0.05em] leading-relaxed mt-2">
+                    <div className="self-center w-full text-outputmassage font-serif text-[15px] tracking-normal leading-[1.65] mt-2">
                       <ReactMarkdown
                         components={{
-                          // Paragraphs
                           p: ({ node, ...props }) => (
-                            <p className="mb-5 last:mb-0" {...props} />
+                            <p className="mb-3 last:mb-0" {...props} />
                           ),
-
-                          // Headings
                           h1: ({ node, ...props }) => (
                             <h1
-                              className="text-[26px] font-bold mb-4 mt-8 leading-snug tracking-tight"
+                              className="text-[22px] font-bold mb-3 mt-6 leading-snug font-sans"
                               {...props}
                             />
                           ),
                           h2: ({ node, ...props }) => (
                             <h2
-                              className="text-[20px] font-bold mb-4 mt-8 leading-snug tracking-tight"
+                              className="text-[18px] font-bold mb-3 mt-6 leading-snug font-sans"
                               {...props}
                             />
                           ),
                           h3: ({ node, ...props }) => (
                             <h3
-                              className="text-[17px] font-bold mb-3 mt-6 leading-snug tracking-tight"
+                              className="text-[15px] font-bold mb-2 mt-4 leading-snug font-sans"
                               {...props}
                             />
                           ),
-
-                          // Lists
                           ul: ({ node, ...props }) => (
                             <ul
-                              className="list-disc pl-5 mb-5 space-y-2 marker:text-outputmassage/40"
+                              className="list-disc pl-5 mb-3 space-y-1 marker:text-outputmassage/40"
                               {...props}
                             />
                           ),
                           ol: ({ node, ...props }) => (
                             <ol
-                              className="list-decimal pl-5 mb-5 space-y-2 marker:text-outputmassage/40"
+                              className="list-decimal pl-5 mb-3 space-y-1 marker:text-outputmassage/40"
                               {...props}
                             />
                           ),
                           li: ({ node, ...props }) => (
-                            <li className="pl-1.5" {...props} />
+                            <li className="pl-1" {...props} />
                           ),
-
-                          // Bold text
                           strong: ({ node, ...props }) => (
                             <strong className="font-semibold" {...props} />
                           ),
-
-                          // Blockquotes (The vertical line on the left)
                           blockquote: ({ node, ...props }) => (
                             <blockquote
-                              className="border-l-[4px] border-[#41413D] pl-4 py-0.5 my-6 text-outputmassage/70 italic"
+                              className="border-l-[3px] border-[#41413D] pl-4 py-0.5 my-4 text-outputmassage/60 italic"
                               {...props}
                             />
                           ),
-
-                          // Horizontal Rules (---)
                           hr: ({ node, ...props }) => (
                             <hr
-                              className="border-t border-border-main my-8"
+                              className="border-t border-border-main my-6"
                               {...props}
                             />
                           ),
-
-                          // Links
                           a: ({ node, ...props }) => (
                             <a
                               className="text-accent hover:underline underline-offset-2"
                               {...props}
                             />
                           ),
-
-                          // Code Blocks & Inline Code
-                          code(props) {
-                            const { children, className, node, ...rest } =
-                              props;
-                            const match = /language-(\w+)/.exec(
-                              className || "",
-                            );
-
-                            // 1. Multi-line Code Block
-                            if (match || String(children).includes("\n")) {
-                              const language = match ? match[1] : "";
-                              return (
-                                <div className="my-6 rounded-xl overflow-hidden bg-[#1f1e1d] border border-border-main font-sans shadow-sm group">
-                                  {/* Header Row (Language & Copy Button) */}
-                                  <div className="flex items-center justify-between px-4 pt-3 pb-2">
-                                    <span className="text-[13px] text-placeholder font-medium lowercase">
-                                      {language}
-                                    </span>
-
-                                    {/* Simple Copy Icon (Fades in on hover just like Claude) */}
-                                    <button className="text-placeholder hover:text-[#e6e4df] transition-colors opacity-0 group-hover:opacity-100">
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                      >
-                                        <rect
-                                          x="9"
-                                          y="9"
-                                          width="13"
-                                          height="13"
-                                          rx="2"
-                                          ry="2"
-                                        ></rect>
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                      </svg>
-                                    </button>
-                                  </div>
-                                  {/* The Code Body */}
-                                  <div className="px-4 pb-4 overflow-x-auto text-[14px] leading-relaxed text-[#e6e4df] font-mono">
-                                    <code className={className} {...rest}>
-                                      {children}
-                                    </code>
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            // 2. Inline Code (e.g. `const x = 1` inside a paragraph)
-                            return (
-                              <code
-                                className="bg-[#e5e3de] dark:bg-[#32312f] text-[#c25c47] dark:text-[#f28b77] px-[5px] py-[2px] rounded-[6px] font-mono text-[13.5px] border border-transparent dark:border-[#41413D]/50"
-                                {...rest}
-                              >
-                                {children}
-                              </code>
-                            );
-                          },
-
-                          // Strip out the default <pre> wrapper to prevent double-backgrounds
+                          code: ({ children, className, node, ...rest }) => (
+                            <CodeBlock className={className}>
+                              {children}
+                            </CodeBlock>
+                          ),
                           pre: ({ node, children, ...props }) => (
                             <>{children}</>
                           ),
@@ -363,8 +323,10 @@ function App() {
               ))}
 
               {isLoading && (
-                <div className="self-start w-full text-outputmassage font-serif text-[16px] tracking-[-0.015em] opacity-50 mt-2">
-                  Thinking...
+                <div className="flex items-center gap-1.5 mt-2 opacity-50">
+                  <span className="w-1.5 h-1.5 bg-outputmassage rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-outputmassage rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 bg-outputmassage rounded-full animate-bounce [animation-delay:300ms]" />
                 </div>
               )}
               <div ref={chatEndRef} />
@@ -389,7 +351,10 @@ function App() {
                   size={42}
                   className="text-accent fill-accent/20 mx-auto mb-4"
                 />
-                <h1 className="text-4xl md:text-[40px] font-serif font-normal text-card-text tracking-tight">
+                <h1
+                  className="text-4xl md:text-[40px] font-normal text-card-text tracking-tight"
+                  style={{ fontFamily: "Copernicus, Georgia, serif" }}
+                >
                   {greeting}, Bheesham
                 </h1>
               </div>
@@ -487,5 +452,56 @@ const Chip = ({ icon, label }) => (
     {label}
   </button>
 );
+
+const CodeBlock = ({ children, className }) => {
+  const [copied, setCopied] = useState(false);
+  const match = /language-(\w+)/.exec(className || "");
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(String(children));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (match || String(children).includes("\n")) {
+    return (
+      <div className="my-4 rounded-xl overflow-hidden bg-[#1f1e1d] border border-border-main font-sans shadow-sm group">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <span className="text-[12px] text-placeholder font-medium lowercase">
+            {match ? match[1] : "code"}
+          </span>
+          <button
+            onClick={handleCopy}
+            className="text-placeholder hover:text-[#e6e4df] transition-colors opacity-0 group-hover:opacity-100 text-[12px]"
+          >
+            {copied ? "copied!" : "copy"}
+          </button>
+        </div>
+        <div className="px-4 pb-4 overflow-x-auto font-mono">
+          <SyntaxHighlighter
+            style={oneDark}
+            language={match ? match[1] : "text"}
+            PreTag="div"
+            customStyle={{
+              background: "transparent",
+              padding: 0,
+              margin: 0,
+              fontSize: "13px",
+              lineHeight: "1.5",
+            }}
+          >
+            {String(children).replace(/\n$/, "")}
+          </SyntaxHighlighter>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <code className="bg-[#e5e3de] dark:bg-[#32312f] text-[#c25c47] dark:text-[#f28b77] px-[5px] py-[2px] rounded-[6px] font-mono text-[13px] border border-transparent dark:border-[#41413D]/50">
+      {children}
+    </code>
+  );
+};
 
 export default App;

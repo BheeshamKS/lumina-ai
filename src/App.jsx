@@ -240,7 +240,7 @@ function App() {
                 <div key={idx} className="flex flex-col w-full">
                   {msg.role === "user" ? (
                     // USER MESSAGE
-                    <div className="self-center md:self-end bg-user-bubble text-user-bubble-text px-5 py-4 rounded-2xl max-w-[90%] md:max-w-[85%] text-[15px] leading-relaxed shadow-sm">
+                    <div className="self-center md:self-end bg-user-bubble text-user-bubble-text px-4 py-3 rounded-2xl max-w-[90%] md:max-w-[85%] text-[15px] leading-relaxed">
                       {msg.content}
                     </div>
                   ) : (
@@ -376,7 +376,7 @@ function App() {
                     : "Reply..."
                 }
                 rows="1"
-                className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[16px] leading-relaxed text-primary placeholder-placeholder max-h-100 ${
+                className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[16px] font-sans leading-normal text-outputmassage placeholder-placeholder max-h-100 ${
                   messages.length === 0 ? "min-h-15" : "min-h-10"
                 }`}
               />
@@ -461,7 +461,7 @@ const getLuminaTheme = (isDark) => {
 
   const c = isDark
     ? {
-        base: "#e6e4df",
+        base: "#9be963",
         tag: "#ec7882",
         string: "#9be963",
         keyword: "#cc7bf4",
@@ -469,8 +469,8 @@ const getLuminaTheme = (isDark) => {
         comment: "#6e6e68",
         function: "#7ec8e3",
         operator: "#e6e4df",
-        punctuation: "#8a8a82",
-        property: "#e8c97a",
+        punctuation: "#d3d7de",
+        property: "#f47b85",
         constant: "#5de7e7",
         builtin: "#cc7bf4",
         attr: "#ec7882",
@@ -485,7 +485,7 @@ const getLuminaTheme = (isDark) => {
         function: "#2a7a9d",
         operator: "#2d2b29",
         punctuation: "#666660",
-        property: "#a07a20",
+        property: "#bb1421",
         constant: "#2a9d9d",
         builtin: "#8b4dbf",
         attr: "#c0404a",
@@ -538,7 +538,7 @@ const CodeBlock = ({ children, className, darkMode }) => {
 
   if (match || String(children).includes("\n")) {
     return (
-      <div className="my-4 rounded-xl overflow-hidden bg-codeblock-bg border border-border-main font-sans group">
+      <div className="my-4 rounded-[8px] overflow-hidden bg-codeblock-bg border border-codeblockborder font-sans group">
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
           <span className="text-[12px] text-placeholder font-medium lowercase">
             {match ? match[1] : "code"}

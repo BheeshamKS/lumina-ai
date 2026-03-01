@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
@@ -20,6 +19,7 @@ import {
   ChevronDown,
   ArrowRight,
 } from "lucide-react";
+import { darcula } from "react-syntax-highlighter/dist/esm/styles/hljs";
 
 // Initialize the Gemini API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
@@ -240,12 +240,12 @@ function App() {
                 <div key={idx} className="flex flex-col w-full">
                   {msg.role === "user" ? (
                     // USER MESSAGE
-                    <div className="self-center md:self-end bg-[#2d2b29] dark:bg-[#30302e] text-[#e6e4df] px-5 py-4 rounded-2xl max-w-[90%] md:max-w-[85%] text-[16px] leading-relaxed shadow-sm">
+                    <div className="self-center md:self-end bg-user-bubble text-user-bubble-text px-5 py-4 rounded-2xl max-w-[90%] md:max-w-[85%] text-[15px] leading-relaxed shadow-sm">
                       {msg.content}
                     </div>
                   ) : (
                     // AI MESSAGE: Rendered with React Markdown
-                    <div className="self-center w-full text-outputmassage font-serif text-[15px] tracking-normal leading-[1.65] mt-2">
+                    <div className="self-center w-full max-w-175 text-outputmassage font-serif text-[16px] tracking-[0.01em] leading-[1.7] mt-2">
                       <ReactMarkdown
                         components={{
                           p: ({ node, ...props }) => (
@@ -253,19 +253,19 @@ function App() {
                           ),
                           h1: ({ node, ...props }) => (
                             <h1
-                              className="text-[22px] font-bold mb-3 mt-6 leading-snug font-sans"
+                              className="text-[22px] font-bold mb-3 mt-6 leading-snug font-serif"
                               {...props}
                             />
                           ),
                           h2: ({ node, ...props }) => (
                             <h2
-                              className="text-[18px] font-bold mb-3 mt-6 leading-snug font-sans"
+                              className="text-[18px] font-bold mb-3 mt-6 leading-snug font-serif"
                               {...props}
                             />
                           ),
                           h3: ({ node, ...props }) => (
                             <h3
-                              className="text-[15px] font-bold mb-2 mt-4 leading-snug font-sans"
+                              className="text-[15px] font-bold mb-2 mt-4 leading-snug font-serif"
                               {...props}
                             />
                           ),
@@ -289,7 +289,7 @@ function App() {
                           ),
                           blockquote: ({ node, ...props }) => (
                             <blockquote
-                              className="border-l-[3px] border-[#41413D] pl-4 py-0.5 my-4 text-outputmassage/60 italic"
+                              className="border-l-[3px] border-blockquote-border pl-4 py-0.5 my-4 text-outputmassage/60 italic"
                               {...props}
                             />
                           ),
@@ -301,12 +301,15 @@ function App() {
                           ),
                           a: ({ node, ...props }) => (
                             <a
-                              className="text-accent hover:underline underline-offset-2"
+                              className="text-accentmassage hover:underline underline-offset-2"
                               {...props}
                             />
                           ),
                           code: ({ children, className, node, ...rest }) => (
-                            <CodeBlock className={className}>
+                            <CodeBlock
+                              className={className}
+                              darkMode={darkMode}
+                            >
                               {children}
                             </CodeBlock>
                           ),
@@ -453,7 +456,77 @@ const Chip = ({ icon, label }) => (
   </button>
 );
 
-const CodeBlock = ({ children, className }) => {
+const getLuminaTheme = (isDark) => {
+  //const dark = document.documentElement.classList.contains("dark");
+
+  const c = isDark
+    ? {
+        base: "#e6e4df",
+        tag: "#ec7882",
+        string: "#9be963",
+        keyword: "#cc7bf4",
+        number: "#5de7e7",
+        comment: "#6e6e68",
+        function: "#7ec8e3",
+        operator: "#e6e4df",
+        punctuation: "#8a8a82",
+        property: "#e8c97a",
+        constant: "#5de7e7",
+        builtin: "#cc7bf4",
+        attr: "#ec7882",
+      }
+    : {
+        base: "#2d2b29",
+        tag: "#c0404a",
+        string: "#5a8a2e",
+        keyword: "#8b4dbf",
+        number: "#2a9d9d",
+        comment: "#888880",
+        function: "#2a7a9d",
+        operator: "#2d2b29",
+        punctuation: "#666660",
+        property: "#a07a20",
+        constant: "#2a9d9d",
+        builtin: "#8b4dbf",
+        attr: "#c0404a",
+      };
+
+  return {
+    'code[class*="language-"]': { color: c.base, background: "transparent" },
+    'pre[class*="language-"]': { color: c.base, background: "transparent" },
+    comment: { color: c.comment, fontStyle: "italic" },
+    prolog: { color: c.comment },
+    doctype: { color: c.comment },
+    cdata: { color: c.comment },
+    punctuation: { color: c.punctuation },
+    property: { color: c.property },
+    tag: { color: c.tag },
+    boolean: { color: c.number },
+    number: { color: c.number },
+    constant: { color: c.constant },
+    symbol: { color: c.number },
+    selector: { color: c.keyword },
+    "attr-name": { color: c.attr },
+    string: { color: c.string },
+    char: { color: c.string },
+    builtin: { color: c.builtin },
+    operator: { color: c.operator },
+    entity: { color: c.property },
+    url: { color: c.string },
+    keyword: { color: c.keyword },
+    regex: { color: c.string },
+    important: { color: c.keyword, fontWeight: "bold" },
+    variable: { color: c.base },
+    function: { color: c.function },
+    "class-name": { color: c.function },
+    "attr-value": { color: c.string },
+    atrule: { color: c.keyword },
+    inserted: { color: c.string },
+    deleted: { color: c.tag },
+  };
+};
+
+const CodeBlock = ({ children, className, darkMode }) => {
   const [copied, setCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || "");
 
@@ -465,7 +538,7 @@ const CodeBlock = ({ children, className }) => {
 
   if (match || String(children).includes("\n")) {
     return (
-      <div className="my-4 rounded-xl overflow-hidden bg-[#1f1e1d] border border-border-main font-sans shadow-sm group">
+      <div className="my-4 rounded-xl overflow-hidden bg-codeblock-bg border border-border-main font-sans group">
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
           <span className="text-[12px] text-placeholder font-medium lowercase">
             {match ? match[1] : "code"}
@@ -479,15 +552,16 @@ const CodeBlock = ({ children, className }) => {
         </div>
         <div className="px-4 pb-4 overflow-x-auto font-mono">
           <SyntaxHighlighter
-            style={oneDark}
+            style={getLuminaTheme(darkMode)}
             language={match ? match[1] : "text"}
             PreTag="div"
             customStyle={{
               background: "transparent",
               padding: 0,
               margin: 0,
-              fontSize: "13px",
-              lineHeight: "1.5",
+              fontSize: "14px",
+              lineHeight: "1.6",
+              fontFamily: "'Roboto Mono', ui-monospace, monospace",
             }}
           >
             {String(children).replace(/\n$/, "")}
@@ -498,7 +572,10 @@ const CodeBlock = ({ children, className }) => {
   }
 
   return (
-    <code className="bg-[#e5e3de] dark:bg-[#32312f] text-[#c25c47] dark:text-[#f28b77] px-[5px] py-[2px] rounded-[6px] font-mono text-[13px] border border-transparent dark:border-[#41413D]/50">
+    <code
+      className="bg-inlinebg text-inlinetext px-[5px] py-[2px] rounded-[6px] text-[13px] border border-inlineborder"
+      style={{ fontFamily: "'Roboto Mono', ui-monospace, monospace" }}
+    >
       {children}
     </code>
   );

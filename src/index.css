@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;1,8..60,300;1,8..60,400&display=swap');
-
 @font-face {
   font-family: 'Styrene B';
   src: url('./fonts/StyreneB-Regular-Trial.otf') format('opentype');
@@ -46,7 +44,8 @@
 
 @theme {
   --font-serif: "Tiempos Text", Georgia, serif;
---font-sans: "Styrene B", system-ui, sans-serif;
+  --font-sans: "Styrene B", system-ui, sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, monospace;
   
   /* CLAUDE LIGHT MODE */
   --color-app: #faf9f5;          
@@ -67,7 +66,33 @@
 
   --color-border-main: #e5e3de;   
   --color-border-hover: #cbc9c4;  
-  --color-accent: #d97757;        
+  --color-accent: #d97757;  
+
+  --color-user-bubble: #2d2b29;
+  --color-user-bubble-text: #e6e4df;
+
+  --color-codeblock-bg: #fdfcfa;
+  --color-blockquote-border: #dcdbd9;
+
+  --color-inlinetext: #8a2424;
+  --color-inlinebg: #f0efec;
+  --color-inlineborder: #d2d1cd;
+
+
+  --syntax-tag: #c0404a;
+  --syntax-string: #5a8a2e;
+  --syntax-keyword: #8b4dbf;
+  --syntax-number: #2a9d9d;
+  --syntax-comment: #888880;
+  --syntax-function: #2a7a9d;
+  --syntax-operator: #2d2b29;
+  --syntax-punctuation: #666660;
+  --syntax-property: #a07a20;
+  --syntax-variable: #2d2b29;
+  --syntax-constant: #2a9d9d;
+  --syntax-class: #2a7a9d;
+  --syntax-builtin: #8b4dbf;
+  --syntax-attr: #c0404a;
 }
 
 .dark {
@@ -90,7 +115,36 @@
 
   --color-border-main: #373733; 
   --color-border-hover: #555450;
-  --color-accent: #d97757;      
+  --color-accent: #d97757;   
+
+  --color-user-bubble: #30302e;
+  --color-user-bubble-text: #e6e4df;
+
+  --color-blockquote-border: #41413D;
+  --color-codeblock-bg: #2b2b29;
+  
+  --color-inlinetext: #FE8181;
+  --color-inlinebg: #2e2e2b;
+  --color-inlineborder: #494944;
+
+
+
+
+  /* Syntax tokens */
+  --syntax-tag: #ec7882;
+  --syntax-string: #9be963;
+  --syntax-keyword: #cc7bf4;
+  --syntax-number: #5de7e7;
+  --syntax-comment: #6e6e68;
+  --syntax-function: #70b8ff;
+  --syntax-operator: #e6e4df;
+  --syntax-punctuation: #8a8a82;
+  --syntax-property: #e8c97a;
+  --syntax-variable: #e6e4df;
+  --syntax-constant: #5de7e7;
+  --syntax-class: #70b8ff;
+  --syntax-builtin: #cc7bf4;
+  --syntax-attr: #ec7882;
 }
 
 body {

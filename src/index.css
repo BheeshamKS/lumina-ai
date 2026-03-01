@@ -68,6 +68,8 @@
   --color-border-hover: #cbc9c4;  
   --color-accent: #d97757;  
 
+  --color-sidebar-border: #d9d9d4;
+
   --color-user-bubble: #f0eee6;
   --color-user-bubble-text: #171716;
 
@@ -102,6 +104,8 @@
   --color-border-main: #373733; 
   --color-border-hover: #555450;
   --color-accent: #d97757;   
+
+  --color-sidebar-border: #40403d;
 
   --color-user-bubble: #141413;
   --color-user-bubble-text: #f9f8f4;

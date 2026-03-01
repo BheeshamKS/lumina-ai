@@ -136,7 +136,7 @@ function App() {
     <div className="flex h-screen bg-app font-sans antialiased">
       {/* 1. SIDEBAR */}
       <aside
-        className={`${sidebarOpen ? "w-64" : "w-12"} border-r border-border-main bg-card flex flex-col transition-all duration-300 shrink-0 overflow-hidden z-20`}
+        className={`${sidebarOpen ? "w-72" : "w-12"} border-r border-sidebar-border bg-card flex flex-col transition-all duration-300 shrink-0 overflow-hidden z-20`}
       >
         <div className="py-3 flex flex-col h-full">
           <div
@@ -185,7 +185,7 @@ function App() {
 
           {/* Profile Section */}
           <div
-            className={`mt-auto pt-3 ${sidebarOpen ? "border-t border-border-main w-full" : "border-t border-transparent w-full"} `}
+            className={`mt-auto pt-3 ${sidebarOpen ? "border-t border-sidebar-border w-full" : "border-t border-transparent w-full"} `}
           >
             <div
               className={`flex ${sidebarOpen ? "px-3" : "px-1 justify-center"}`}

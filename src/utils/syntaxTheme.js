@@ -13,7 +13,7 @@ export const getLuminaTheme = (isDark) => {
           property: "#f47b85",
           constant: "#5de7e7",
           builtin: "#cc7bf4",
-          attr: "#ec7882",
+          attr: "#ec7882", 
         }
       : {
           base: "#2d2b29",

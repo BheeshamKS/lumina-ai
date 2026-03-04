@@ -1,23 +1,33 @@
 import { useState, useEffect, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { Moon, Sun } from "lucide-react";
-
-// Components
-import { Sidebar } from "../components/sidebar";
 import { ChatArea } from "../components/chatArea";
 import { InputArea } from "../components/inputArea";
+import { AuthModal } from "../components/authModal";
+import { OnboardingModal } from "../components/onboardingModal";
 
-// Initialize the Gemini API
+// 1. master fallback key
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-export const ChatPage = ({ darkMode, setDarkMode }) => {
+export const ChatPage = ({ darkMode, session }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const [guestPromptCount, setGuestPromptCount] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const [needsOnboarding, setNeedsOnboarding] = useState(true);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+
   const textAreaRef = useRef(null);
   const chatEndRef = useRef(null);
+
+  const [activeModel, setActiveModel] = useState({
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "Google",
+  });
 
   const hour = new Date().getHours();
   let greeting = "Good evening";
@@ -40,13 +50,23 @@ export const ChatPage = ({ darkMode, setDarkMode }) => {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    if (!session && guestPromptCount >= 3) {
+      setShowAuthModal(true);
+      return;
+    }
+
     const userText = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userText }]);
     setIsLoading(true);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      if (!session) {
+        setGuestPromptCount((prev) => prev + 1);
+      }
+
+      const model = genAI.getGenerativeModel({ model: activeModel.id });
+
       const history = messages.map((msg) => ({
         role: msg.role === "user" ? "user" : "model",
         parts: [{ text: msg.content }],
@@ -110,44 +130,39 @@ export const ChatPage = ({ darkMode, setDarkMode }) => {
   };
 
   return (
-    <div className="flex h-screen bg-app font-sans antialiased">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+    <>
+      <ChatArea
+        messages={messages}
+        isLoading={isLoading}
+        chatEndRef={chatEndRef}
+        darkMode={darkMode}
+      />
 
-      <main className="flex-1 flex flex-col items-center relative bg-app overflow-hidden">
-        {/* Top Controls */}
-        <div className="absolute top-6 right-6 flex items-center gap-3 z-10">
-          <div className="px-3 py-1 bg-card border border-border-main rounded-full text-[12px] text-card-text flex gap-2 shadow-sm">
-            <span>Free plan</span>
-            <span className="opacity-30">|</span>
-            <button className="hover:text-accent transition-colors">
-              Upgrade
-            </button>
-          </div>
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-2 hover:bg-card-hover rounded-full transition-all text-card-text hover:text-card-text-hover"
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        </div>
+      <InputArea
+        input={input}
+        setInput={setInput}
+        handleSend={handleSend}
+        handleKeyDown={handleKeyDown}
+        textAreaRef={textAreaRef}
+        messagesLength={messages.length}
+        greeting={greeting}
+        activeModel={activeModel}
+        setActiveModel={setActiveModel}
+      />
 
-        <ChatArea
-          messages={messages}
-          isLoading={isLoading}
-          chatEndRef={chatEndRef}
-          darkMode={darkMode}
-        />
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
 
-        <InputArea
-          input={input}
-          setInput={setInput}
-          handleSend={handleSend}
-          handleKeyDown={handleKeyDown}
-          textAreaRef={textAreaRef}
-          messagesLength={messages.length}
-          greeting={greeting}
-        />
-      </main>
-    </div>
+      <OnboardingModal
+        isOpen={session && needsOnboarding && !hasCompletedOnboarding}
+        onClose={() => setHasCompletedOnboarding(true)}
+        onSaveKey={(key) => {
+          console.log("Key to save later:", key);
+          setHasCompletedOnboarding(true);
+        }}
+      />
+    </>
   );
 };

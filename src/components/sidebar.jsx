@@ -1,12 +1,14 @@
-import { Plus, Search, LayoutGrid } from "lucide-react"; // Adjust if you use lucide-react differently
+import { Plus, Search, LayoutGrid, Settings } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
-const SidebarItem = ({ icon, label, isOpen }) => (
-  <div
+const SidebarItem = ({ icon, label, isOpen, to, isActive }) => (
+  <Link
+    to={to || "#"}
     className={`flex items-center ${isOpen ? "justify-start px-3" : "justify-center"} py-2.5 hover:bg-card-hover rounded-xl cursor-pointer text-card-text hover:text-card-text-hover transition-colors`}
   >
     <div className="shrink-0">{icon}</div>
     {isOpen && <span className="text-sm font-medium ml-3">{label}</span>}
-  </div>
+  </Link>
 );
 
 const RecentItem = ({ title }) => (
@@ -16,6 +18,8 @@ const RecentItem = ({ title }) => (
 );
 
 export const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
+  const location = useLocation();
+
   return (
     <aside
       className={`${sidebarOpen ? "w-72" : "w-12"} border-r border-sidebar-border bg-card flex flex-col transition-all duration-300 shrink-0 overflow-hidden z-20`}
@@ -45,11 +49,22 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             icon={<Plus size={20} />}
             label="New chat"
             isOpen={sidebarOpen}
+            to="/"
+            isActive={location.pathname === "/"}
           />
           <SidebarItem
             icon={<Search size={20} />}
             label="Search"
             isOpen={sidebarOpen}
+            to="#"
+            isActive={false}
+          />
+          <SidebarItem
+            icon={<Settings size={20} />}
+            label="Settings"
+            isOpen={sidebarOpen}
+            to="/settings"
+            isActive={location.pathname === "/settings"}
           />
         </div>
 

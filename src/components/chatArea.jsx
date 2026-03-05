@@ -88,11 +88,16 @@ export const ChatArea = ({ messages, isLoading, chatEndRef, darkMode }) => {
             )}
           </div>
         ))}
+        {/* Thinking Animation */}
         {isLoading && (
-          <div className="flex items-center gap-1.5 mt-2 opacity-50">
-            <span className="w-1.5 h-1.5 bg-outputmassage rounded-full animate-bounce [animation-delay:0ms]" />
-            <span className="w-1.5 h-1.5 bg-outputmassage rounded-full animate-bounce [animation-delay:150ms]" />
-            <span className="w-1.5 h-1.5 bg-outputmassage rounded-full animate-bounce [animation-delay:300ms]" />
+          <div className="flex justify-start mb-6 animate-in fade-in slide-in-from-left-2 duration-300">
+            <div className="bg-card border border-border-main rounded-2xl px-4 py-3 shadow-sm">
+              <div className="flex gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce"></div>
+              </div>
+            </div>
           </div>
         )}
         <div ref={chatEndRef} />

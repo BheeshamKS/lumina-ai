@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { addApiKey } from "../utils/apiKeys";
 import {
   ShieldCheck,
   Key,
@@ -14,17 +15,24 @@ export const OnboardingModal = ({ isOpen, onClose, onSaveKey }) => {
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!apiKey.trim()) return;
     setIsSaving(true);
-    // Simulate a secure save for now. We will wire this to Supabase Vault next!
-    setTimeout(() => {
-      onSaveKey(apiKey);
-      setIsSaving(false);
-      onClose();
-    }, 800);
-  };
 
+    try {
+      // 1. THIS IS THE REAL SAVE: It sends the key securely to Supabase
+      await addApiKey("Google", apiKey.trim(), "My First Key");
+
+      // 2. Tell the UI it was successful and close the modal
+      onSaveKey(apiKey);
+      onClose();
+    } catch (error) {
+      console.error("Error saving key:", error);
+      alert("Failed to save key. Please check your connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-app/80 backdrop-blur-sm px-4 animate-in fade-in duration-300">
       <div className="relative w-full max-w-2xl bg-inputcard border border-border-main rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col md:flex-row">

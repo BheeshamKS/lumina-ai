@@ -84,3 +84,35 @@ export const setActiveKey = async (provider, newActiveKeyId) => {
   if (error) throw error;
   return true;
 };
+
+// 5. Check which providers the user has set up (Used by ChatPage for the BYOK Modal)
+export const getUserConfiguredProviders = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const { data, error } = await supabase
+    .from('user_keys')
+    .select('provider')
+    .eq('user_id', session.user.id);
+
+  if (error || !data) return [];
+  
+  // Use a Set to remove duplicates (e.g., if they have 3 Google keys, "Google" only appears once)
+  return [...new Set(data.map(row => row.provider))];
+};
+
+// Helper to get the active key for a specific provider
+export const getActiveKeyForProvider = async (provider) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const { data } = await supabase
+    .from('user_keys')
+    .select('api_key')
+    .eq('user_id', session.user.id)
+    .eq('provider', provider)
+    .eq('is_active', true)
+    .single();
+
+  return data?.api_key || null;
+};

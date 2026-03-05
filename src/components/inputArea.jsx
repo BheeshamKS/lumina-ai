@@ -137,7 +137,7 @@ export const InputArea = ({
                   className="flex items-center gap-1.5 cursor-pointer hover:text-card-text-hover transition-colors px-2 py-1 rounded-md hover:bg-card-hover"
                 >
                   <span className="truncate max-w-[120px]">
-                    {activeModel.name}
+                    {activeModel?.name || "Loading..."}
                   </span>
                   <ChevronDown
                     size={14}
@@ -164,7 +164,7 @@ export const InputArea = ({
                                 className="w-full flex items-center justify-between px-2.5 py-2 text-[13px] text-card-text hover:bg-card-hover hover:text-card-text-hover rounded-lg transition-colors text-left"
                               >
                                 <span className="truncate">{model.name}</span>
-                                {activeModel.id === model.id && (
+                                {activeModel?.id === model.id && (
                                   <Check size={14} className="text-accent" />
                                 )}
                               </button>

@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { Moon, Sun } from "lucide-react";
 import { supabase } from "./utils/supabase";
 
@@ -58,10 +63,21 @@ function App() {
           </div>
 
           <Routes>
+            {/* Redirect the root URL to /new */}
+            <Route path="/" element={<Navigate to="/new" replace />} />
+
+            {/* The empty "New Chat" state */}
             <Route
-              path="/"
+              path="/new"
               element={<ChatPage darkMode={darkMode} session={session} />}
             />
+
+            {/* The active chat state with a unique ID */}
+            <Route
+              path="/chat/:chatId"
+              element={<ChatPage darkMode={darkMode} session={session} />}
+            />
+
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

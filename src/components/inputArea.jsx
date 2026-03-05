@@ -11,31 +11,6 @@ import {
   Check,
 } from "lucide-react";
 
-// Our future-proof model list
-const AVAILABLE_MODELS = [
-  {
-    provider: "Google",
-    models: [
-      { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-      { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-    ],
-  },
-  {
-    provider: "Anthropic",
-    models: [
-      { id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet" },
-      { id: "claude-3-haiku", name: "Claude 3 Haiku" },
-    ],
-  },
-  {
-    provider: "Groq",
-    models: [
-      { id: "llama3-70b-8192", name: "Llama 3 70B" },
-      { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B" },
-    ],
-  },
-];
-
 const Chip = ({ icon, label }) => (
   <button className="flex items-center gap-2 px-4 py-2 bg-card hover:bg-card-hover border border-border-main hover:border-card-hover rounded-[10px] text-sm font-medium text-card-text hover:text-card-text-hover transition-all">
     <span className="shrink-0">{icon}</span>
@@ -53,22 +28,22 @@ export const InputArea = ({
   greeting,
   activeModel,
   setActiveModel,
+  availableModels = [], // <-- Accept the new prop here
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  // MOCK STATE: Pretend we fetched this from Supabase.
-  // The user has only provided keys for Google and Groq so far.
-  const [userKeys, setUserKeys] = useState({
-    Google: true,
-    Anthropic: false,
-    Groq: true,
-  });
+  // DYNAMIC GROUPING: Take the flat list from the DB and group it by provider
+  const groupedModels = availableModels.reduce((acc, model) => {
+    if (!acc[model.provider]) {
+      acc[model.provider] = { provider: model.provider, models: [] };
+    }
+    acc[model.provider].models.push(model);
+    return acc;
+  }, {});
 
-  // Dynamically filter the models so we ONLY show providers the user has keys for
-  const availableProviders = AVAILABLE_MODELS.filter(
-    (group) => userKeys[group.provider],
-  );
+  // Convert the grouped object into an array so React can map over it
+  const availableProviders = Object.values(groupedModels);
 
   // Close menu if user clicks outside of it
   useEffect(() => {

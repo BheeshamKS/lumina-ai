@@ -2,8 +2,8 @@ import { supabase } from "./supabase";
 
 export const MODEL_REGISTRY = [
   // GOOGLE MODELS
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", provider: "Google", type: "Free (Daily Limit)", isDefault: true },
-  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", provider: "Google", type: "Free (Strict Limit)", isDefault: true },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google", type: "Free (Daily Limit)", isDefault: true },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "Google", type: "Free (Strict Limit)", isDefault: true },
   
   // GROQ MODELS
   { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", provider: "Groq", type: "Free (Fast)", isDefault: false },

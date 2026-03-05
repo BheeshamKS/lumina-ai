@@ -1,9 +1,11 @@
+import { Copy, Check } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { useNavigate, useParams } from "react-router-dom";
 import { getUserConfiguredProviders, getActiveApiKey } from "../utils/apiKeys";
 import { MODEL_REGISTRY, getEnabledModels } from "../utils/models";
 import { LUMINA_SYSTEM_PROMPT } from "../utils/prompts";
+import { sendMessageToLLM } from "../utils/llmRouter";
 
 import { ChatArea } from "../components/chatArea";
 import { InputArea } from "../components/inputArea";
@@ -133,102 +135,54 @@ export const ChatPage = ({ darkMode, session }) => {
     const userText = input.trim();
     setInput("");
 
-    // 1. IMMEDIATELY update UI so the user sees their message right away
-    setMessages((prev) => [...prev, { role: "user", content: userText }]);
+    // 1. Immediately update UI
+    const newMessages = [...messages, { role: "user", content: userText }];
+    setMessages(newMessages);
     setIsLoading(true);
 
     try {
       let currentChatId = chatId;
       const isFirstMessage = messages.length === 0 && !chatId;
 
-      // Create ID and Navigate if it's the first message
+      // 2. Create ID and Navigate if it's the first message
       if (isFirstMessage) {
         currentChatId = Math.random().toString(36).substring(2, 11);
         if (session) await createConversation(currentChatId);
         navigate(`/chat/${currentChatId}`, { replace: true });
       }
 
-      // Save user message to DB
-      if (session && currentChatId)
+      // 3. Save user message to DB
+      if (session && currentChatId) {
         saveMessage(currentChatId, "user", userText);
+      }
 
-      // Format history for Gemini SDK
-      const formattedHistory = messages.map((msg) => ({
-        role: msg.role === "user" ? "user" : "model",
-        parts: [{ text: msg.content }],
+      // 4. Format history for the Universal Router
+      // The router expects standard roles: 'user' and 'assistant'
+      const messagesForRouter = newMessages.map((msg) => ({
+        role: msg.role === "ai" ? "assistant" : "user",
+        content: msg.content,
       }));
 
-      const currentProvider = activeModel.provider;
-      const userApiKey = await getActiveApiKey(currentProvider);
+      // 5. THE MAGIC ROUTER CALL!
+      // (No more checking providers, just pass the array and the model ID)
+      const responseText = await sendMessageToLLM(
+        messagesForRouter,
+        activeModel.id,
+      );
 
-      // Use user's key, or fallback to your master key ONLY for Google/Gemini
-      const finalKey =
-        userApiKey ||
-        (currentProvider === "Google"
-          ? import.meta.env.VITE_GEMINI_API_KEY
-          : null);
-
-      if (!finalKey) {
-        throw new Error(
-          `No API key found for ${currentProvider}. Please add one in Settings.`,
-        );
-      }
-
-      let responseText = "";
-      let titleModelInstance = null; // Fix: Scope this outside the if-blocks
-
-      if (currentProvider === "Google") {
-        // --- GOOGLE SDK LOGIC ---
-        const genAIInstance = new GoogleGenerativeAI(finalKey);
-        const model = genAIInstance.getGenerativeModel({
-          model: activeModel.id,
-          systemInstruction: LUMINA_SYSTEM_PROMPT,
-        });
-
-        titleModelInstance = model; // Store it here to pass to the title generator later
-
-        const chat = model.startChat({ history: formattedHistory });
-        const result = await chat.sendMessage(userText);
-        responseText = result.response.text();
-      } else if (currentProvider === "Groq") {
-        // --- GROQ FETCH LOGIC ---
-        const response = await fetch(
-          "https://api.groq.com/openai/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${finalKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: activeModel.id,
-              messages: [
-                { role: "system", content: LUMINA_SYSTEM_PROMPT },
-                ...messages.map((m) => ({
-                  role: m.role === "user" ? "user" : "assistant",
-                  content: m.content,
-                })),
-                { role: "user", content: userText },
-              ],
-            }),
-          },
-        );
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
-        responseText = data.choices[0].message.content;
-      }
-
+      // 6. Update UI with AI response
       setMessages((prev) => [...prev, { role: "ai", content: responseText }]);
 
-      // 6. Final DB Saves
+      // 7. Final DB Saves
       if (session && currentChatId) {
         saveMessage(currentChatId, "ai", responseText);
 
         if (isFirstMessage) {
-          // Fix: Use the Google model if we made one, otherwise use the master fallback key for the title
-          const titleGenModel =
-            titleModelInstance ||
-            genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          // Pro-Tip: We use your master fallback key (genAI) for the title generation.
+          // This ensures title generation is always fast and doesn't drain the user's personal paid Groq/OpenAI quota!
+          const titleGenModel = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+          });
           generateBackgroundTitle(titleGenModel, currentChatId, userText);
         }
       }
@@ -239,17 +193,17 @@ export const ChatPage = ({ darkMode, session }) => {
     } catch (error) {
       console.error("Error:", error);
 
-      // Check if it's a Rate Limit (429) error
+      const errorMessage = error.message || "";
       const isQuotaExceeded =
-        error.message?.includes("429") || error.message?.includes("quota");
+        errorMessage.includes("429") || errorMessage.includes("quota");
 
       setMessages((prev) => [
         ...prev,
         {
           role: "ai",
           content: isQuotaExceeded
-            ? "⚠️ **Quota Exceeded:** You've hit the free limit for this API key. Please wait a while or **switch to a different key** in Settings."
-            : "Sorry, I encountered an error. Please check your connection.",
+            ? `⚠️ **Quota Exceeded:** You've hit the limit for your ${activeModel.provider} API key. Please switch to a different key or model in Settings.`
+            : `⚠️ **Error:** ${errorMessage || "I encountered an error. Please check your connection or API key."}`,
         },
       ]);
     } finally {
@@ -264,6 +218,19 @@ export const ChatPage = ({ darkMode, session }) => {
     }
   };
 
+  // Tracks the ID of the message that was just copied
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
+
+  const handleCopy = (text, messageId) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMessageId(messageId);
+
+    // Switch back to the copy icon after 2 seconds
+    setTimeout(() => {
+      setCopiedMessageId(null);
+    }, 2000);
+  };
+
   return (
     <>
       <ChatArea
@@ -271,6 +238,8 @@ export const ChatPage = ({ darkMode, session }) => {
         isLoading={isLoading}
         chatEndRef={chatEndRef}
         darkMode={darkMode}
+        onCopy={handleCopy}
+        copiedMessageId={copiedMessageId}
       />
 
       <InputArea
@@ -283,6 +252,7 @@ export const ChatPage = ({ darkMode, session }) => {
         greeting={greeting}
         activeModel={activeModel}
         setActiveModel={setActiveModel}
+        availableModels={availableModels}
       />
 
       <AuthModal

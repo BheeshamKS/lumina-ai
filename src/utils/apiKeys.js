@@ -1,118 +1,91 @@
 import { supabase } from "./supabase";
 
-// 1. Add a new key
-export const addApiKey = async (provider, apiKey, keyName = "Default Key") => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error("Not logged in");
-
-  // Check if they already have an active key for this provider
-  const { data: existing } = await supabase
-    .from('user_keys')
-    .select('id')
-    .eq('user_id', session.user.id)
-    .eq('provider', provider)
-    .eq('is_active', true);
-
-  // If they have NO active keys for this provider, make this new one active automatically
-  const isFirstKey = existing.length === 0;
-
-  const { error } = await supabase
-    .from('user_keys')
-    .insert({
-      user_id: session.user.id,
-      provider: provider,
-      key_name: keyName,
-      api_key: apiKey,
-      is_active: isFirstKey
-    });
-
-  if (error) throw error;
-  return true;
-};
-
-// 2. Fetch the single ACTIVE key (Used by ChatPage to make API calls)
-export const getActiveApiKey = async (provider) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const { data, error } = await supabase
-    .from('user_keys')
-    .select('api_key')
-    .eq('user_id', session.user.id)
-    .eq('provider', provider)
-    .eq('is_active', true)
-    .single();
-
-  if (error || !data) return null;
-  return data.api_key;
-};
-
-// 3. Fetch ALL keys (Used by SettingsPage to list them out)
+// 1. Fetch keys securely (DB decrypts before sending)
 export const getAllUserKeys = async () => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return [];
 
-  const { data, error } = await supabase
-    .from('user_keys')
-    .select('id, provider, key_name, is_active') // Notice we DO NOT fetch the actual api_key string for the UI!
-    .eq('user_id', session.user.id)
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
-  return data;
+  const { data, error } = await supabase.rpc('get_secure_keys');
+  if (error) {
+    console.error("Error fetching secure keys:", error);
+    return [];
+  }
+  return data || [];
 };
 
-// 4. Toggle the active key
-export const setActiveKey = async (provider, newActiveKeyId) => {
+// 2. Add a new key securely (DB encrypts before saving)
+export const addApiKey = async (provider, keyValue, keyName) => {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return;
+  if (!session) throw new Error("No session");
 
-  // Step A: Turn ALL keys for this provider to inactive
+  const { error } = await supabase.rpc('add_secure_key', {
+    p_provider: provider,
+    p_key: keyValue,
+    p_name: keyName
+  });
+
+  if (error) throw error;
+};
+
+// 3. Update an existing key securely (DB encrypts the new value)
+export const updateApiKey = async (keyId, newKeyValue) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("No session");
+
+  const { error } = await supabase.rpc('update_secure_key', {
+    p_key_id: keyId,
+    p_new_key: newKeyValue
+  });
+
+  if (error) throw error;
+};
+
+// 4. Delete a key (Standard delete works fine since it doesn't touch the encrypted column)
+export const deleteApiKey = async (keyId) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("No session");
+
+  const { error } = await supabase
+    .from('user_keys')
+    .delete()
+    .eq('id', keyId)
+    .eq('user_id', session.user.id);
+
+  if (error) throw error;
+};
+
+// 5. Set Active Key (Standard update works fine since it only updates the boolean)
+export const setActiveKey = async (provider, keyId) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("No session");
+
+  // Deactivate all keys for this provider
   await supabase
     .from('user_keys')
     .update({ is_active: false })
-    .eq('user_id', session.user.id)
-    .eq('provider', provider);
+    .eq('provider', provider)
+    .eq('user_id', session.user.id);
 
-  // Step B: Turn the selected key to active
+  // Activate the selected key
   const { error } = await supabase
     .from('user_keys')
     .update({ is_active: true })
-    .eq('user_id', session.user.id)
-    .eq('id', newActiveKeyId);
-
-  if (error) throw error;
-  return true;
-};
-
-// 5. Check which providers the user has set up (Used by ChatPage for the BYOK Modal)
-export const getUserConfiguredProviders = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return [];
-
-  const { data, error } = await supabase
-    .from('user_keys')
-    .select('provider')
+    .eq('id', keyId)
     .eq('user_id', session.user.id);
 
-  if (error || !data) return [];
-  
-  // Use a Set to remove duplicates (e.g., if they have 3 Google keys, "Google" only appears once)
-  return [...new Set(data.map(row => row.provider))];
+  if (error) throw error;
 };
 
-// Helper to get the active key for a specific provider
-export const getActiveKeyForProvider = async (provider) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
+// Helper function used by the chat page to grab the plaintext key for inference
+export const getActiveApiKey = async (provider) => {
+  const keys = await getAllUserKeys();
+  const activeKey = keys.find((k) => k.provider === provider && k.is_active);
+  return activeKey ? activeKey.api_key : null;
+};
 
-  const { data } = await supabase
-    .from('user_keys')
-    .select('api_key')
-    .eq('user_id', session.user.id)
-    .eq('provider', provider)
-    .eq('is_active', true)
-    .single();
-
-  return data?.api_key || null;
+// Helper function used by the Chat page to check if the user needs Onboarding
+export const getUserConfiguredProviders = async () => {
+  const keys = await getAllUserKeys();
+  // Returns a unique list of providers the user has set up (e.g., ["Google", "Groq"])
+  return [...new Set(keys.map((k) => k.provider))];
 };

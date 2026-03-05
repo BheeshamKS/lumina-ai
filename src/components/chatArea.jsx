@@ -1,3 +1,4 @@
+import { Copy, Check, User, Bot } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./codeBlock";
 

@@ -231,6 +231,62 @@ export const ChatPage = ({ darkMode, session }) => {
     }, 2000);
   };
 
+  // --- ADD THIS TO ChatPage.jsx ---
+  const handleRetry = async () => {
+    if (isLoading || messages.length === 0) return;
+
+    // Find the last user message
+    const lastUserMsgIndex = [...messages]
+      .reverse()
+      .findIndex((m) => m.role === "user");
+    if (lastUserMsgIndex === -1) return;
+
+    // The actual index in the original array
+    const actualIndex = messages.length - 1 - lastUserMsgIndex;
+    const lastUserMessage = messages[actualIndex].content;
+
+    // Remove everything from that user message onwards, then immediately re-add the user message
+    // This effectively "deletes" the bad AI response
+    const previousMessages = messages.slice(0, actualIndex);
+
+    setMessages([
+      ...previousMessages,
+      { role: "user", content: lastUserMessage },
+    ]);
+    setIsLoading(true);
+
+    try {
+      // Format history for the router (excluding the AI message we just dropped)
+      const messagesForRouter = previousMessages.map((msg) => ({
+        role: msg.role === "ai" ? "assistant" : "user",
+        content: msg.content,
+      }));
+      // Add the user message we are retrying
+      messagesForRouter.push({ role: "user", content: lastUserMessage });
+
+      // Call your universal router
+      const responseText = await sendMessageToLLM(
+        messagesForRouter,
+        activeModel.id,
+      );
+
+      setMessages((prev) => [...prev, { role: "ai", content: responseText }]);
+
+      // Save to DB if needed
+      if (session && chatId) {
+        saveMessage(chatId, "ai", responseText);
+      }
+    } catch (error) {
+      console.error("Retry Error:", error);
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", content: `⚠️ **Retry Failed:** ${error.message}` },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <>
       <ChatArea
@@ -240,6 +296,7 @@ export const ChatPage = ({ darkMode, session }) => {
         darkMode={darkMode}
         onCopy={handleCopy}
         copiedMessageId={copiedMessageId}
+        onRetry={handleRetry}
       />
 
       <InputArea

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Logo } from "./logo";
 import {
   Zap,
   Plus,
@@ -72,10 +73,7 @@ export const InputArea = ({
       <div className="relative w-full">
         {messagesLength === 0 && (
           <div className="absolute bottom-full left-0 w-full mb-10 text-center">
-            <Zap
-              size={42}
-              className="text-accent fill-accent/20 mx-auto mb-4"
-            />
+            <Logo className="w-11 h-11 mx-auto mb-4" />
             <h1
               className="text-4xl md:text-[40px] font-normal text-card-text tracking-tight"
               style={{ fontFamily: "Copernicus, Georgia, serif" }}
@@ -172,7 +170,7 @@ export const InputArea = ({
                 </button>
               ) : (
                 <button className="p-1.5 bg-app hover:bg-card-hover rounded-lg text-accent transition-colors">
-                  <Zap size={16} className="fill-accent/10" />
+                  <Logo size={16} className="w-4 h-4" />
                 </button>
               )}
             </div>

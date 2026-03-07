@@ -317,6 +317,7 @@ export const ChatPage = ({ darkMode, session }) => {
         setActiveModel={setActiveModel}
         availableModels={availableModels}
         session={session}
+        onOpenAuth={() => setShowAuthModal(true)}
       />
 
       <AuthModal

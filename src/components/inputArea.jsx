@@ -29,7 +29,8 @@ export const InputArea = ({
   activeModel,
   setActiveModel,
   availableModels = [],
-  session, // ── FEATURE 4: needed to show guest footer
+  session,
+  onOpenAuth,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -173,7 +174,10 @@ export const InputArea = ({
                       <div className="border-t border-border-main px-3 py-2.5 bg-card">
                         <p className="text-[11px] text-placeholder leading-relaxed">
                           Sign up and add your own API keys in{" "}
-                          <span className="text-accent font-medium">
+                          <span
+                            className="text-accent font-medium cursor-pointer hover:underline"
+                            onClick={onOpenAuth}
+                          >
                             Settings
                           </span>{" "}
                           to unlock more models.

@@ -1,6 +1,6 @@
 import { MODEL_REGISTRY } from "./models";
 import { getActiveApiKey } from "./apiKeys";
-import { LUMINA_SYSTEM_PROMPT } from "./prompts"; // <-- Added this!
+import { LUMINA_SYSTEM_PROMPT } from "./prompts";
 
 const OPENAI_COMPATIBLE_ENDPOINTS = {
   "OpenAI": "https://api.openai.com/v1/chat/completions",
@@ -12,7 +12,15 @@ export const sendMessageToLLM = async (messages, modelId) => {
   const model = MODEL_REGISTRY.find((m) => m.id === modelId);
   if (!model) throw new Error("Model not found in registry.");
 
-  const apiKey = await getActiveApiKey(model.provider);
+  let apiKey = await getActiveApiKey(model.provider);
+
+  // --- SECURE GUEST KEY INJECTION ---
+  // This gives the router the key it needs for the 3 allowed guest prompts.
+  // ChatPage.jsx will physically block this function from running a 4th time!
+  if (!apiKey && model.provider === "OpenRouter") {
+    apiKey = import.meta.env.VITE_GUEST_API_KEY;
+  }
+
   if (!apiKey) throw new Error(`Please add an API key for ${model.provider} in Settings.`);
 
   if (model.provider === "Google") {
@@ -29,12 +37,10 @@ export const sendMessageToLLM = async (messages, modelId) => {
 // THE FORMATTERS
 // ==========================================
 
-// 1. The Google Formatter
 const fetchGoogleGemini = async (messages, modelId, apiKey) => {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
 
   const geminiMessages = messages.map((msg) => ({
-    // Ensure strict "user" or "model" roles
     role: msg.role === "assistant" ? "model" : "user", 
     parts: [{ text: msg.content }],
   }));
@@ -44,26 +50,16 @@ const fetchGoogleGemini = async (messages, modelId, apiKey) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ 
       contents: geminiMessages,
-      // Google requires the system prompt to be passed here in the REST API
-      system_instruction: {
-        parts: { text: LUMINA_SYSTEM_PROMPT }
-      }
+      system_instruction: { parts: { text: LUMINA_SYSTEM_PROMPT } }
     }),
   });
 
   const data = await response.json();
-
-  // If it fails, throw the EXACT error Google sends back
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Google Gemini API Error");
-  }
-  
+  if (!response.ok) throw new Error(data.error?.message || "Google Gemini API Error");
   return data.candidates[0].content.parts[0].text;
 };
 
-// 2. The OpenAI-Standard Formatter
 const fetchOpenAIStandard = async (messages, modelId, apiKey, baseUrl) => {
-  // Inject the system prompt at the very beginning of the messages array
   const fullMessages = [
     { role: "system", content: LUMINA_SYSTEM_PROMPT },
     ...messages
@@ -82,10 +78,6 @@ const fetchOpenAIStandard = async (messages, modelId, apiKey, baseUrl) => {
   });
 
   const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error?.message || `${model.provider} API Error`);
-  }
-  
+  if (!response.ok) throw new Error(data.error?.message || `${model.provider} API Error`);
   return data.choices[0].message.content;
 };

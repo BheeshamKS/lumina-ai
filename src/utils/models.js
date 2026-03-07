@@ -58,6 +58,7 @@ export const MODEL_REGISTRY = [
   // ==========================================
   // OPENROUTER (Aggregator for Anthropic & others)
   // ==========================================
+  { id: "meta-llama/llama-3-8b-instruct:free", name: "Llama 3 8B (Free)", provider: "OpenRouter", type: "Free (Guest Default)", isDefault: true },
   { id: "anthropic/claude-3.7-sonnet", name: "Claude 3.7 Sonnet", provider: "OpenRouter", type: "Paid", isDefault: false },
   { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku", provider: "OpenRouter", type: "Paid (Fast)", isDefault: false }
 ];

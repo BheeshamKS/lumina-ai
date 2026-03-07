@@ -12,6 +12,7 @@ export const ChatArea = ({
   onCopy,
   copiedMessageId,
   onRetry,
+  chatTitle = "Current Conversation",
 }) => {
   const [feedbackState, setFeedbackState] = useState({});
 
@@ -29,12 +30,10 @@ export const ChatArea = ({
   const parseThinking = (text) => {
     if (!text) return { thinkText: null, responseText: "" };
 
-    // 1. Look for complete <think>...</think> blocks (case-insensitive, handles multiple)
     const completeRegex = /<think>([\s\S]*?)<\/think>/gi;
     let thinkText = "";
     let match;
 
-    // Extract all completed thought blocks
     while ((match = completeRegex.exec(text)) !== null) {
       thinkText += match[1].trim() + "\n\n";
     }
@@ -42,19 +41,16 @@ export const ChatArea = ({
     if (thinkText) {
       return {
         thinkText: thinkText.trim(),
-        // Strip all complete think blocks from the main response
         responseText: text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim(),
       };
     }
 
-    // 2. FALLBACK: Look for an unclosed <think> tag (happens if the AI hits a token limit)
     const unclosedRegex = /<think>([\s\S]*)$/i;
     const unclosedMatch = text.match(unclosedRegex);
 
     if (unclosedMatch) {
       return {
         thinkText: unclosedMatch[1].trim() + " ... (Thinking was cut off)",
-        // Strip everything from <think> to the end of the text
         responseText: text.replace(unclosedRegex, "").trim(),
       };
     }
@@ -64,7 +60,20 @@ export const ChatArea = ({
   };
 
   return (
-    <div className="w-full flex-1 overflow-y-auto pt-24 pb-40 flex flex-col items-center">
+    <div className="w-full flex-1 overflow-y-auto pb-40 flex flex-col items-center relative">
+      {/* THE NEW TOP GRADIENT HEADER - FULL WIDTH */}
+      <div className="sticky top-0 z-30 w-full flex items-center justify-between bg-gradient-to-b from-app from-[60%] to-transparent pt-6 pb-10 px-6 md:px-8 pointer-events-none">
+        {/* Chat Title - Touching the left side */}
+        <h3 className="text-[14px] font-medium text-card-text truncate max-w-[60%] pointer-events-auto">
+          {messages.length > 0 ? chatTitle : ""}
+        </h3>
+
+        {/* Future Action Buttons - Pushed to the far right */}
+        <div className="flex items-center gap-2 shrink-0 pointer-events-auto">
+          {/* We will drop your new buttons right here later! */}
+        </div>
+      </div>
+
       <div className="w-full max-w-3xl px-4 space-y-10">
         {messages.map((msg, idx) => {
           // --- ADD THESE TWO LINES ---

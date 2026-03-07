@@ -60,3 +60,18 @@ export const getChatMessages = async (chatId) => {
   if (error) console.error("Error fetching messages:", error);
   return data || [];
 };
+
+// 6. Fetch a single conversation's title
+export const getConversationTitle = async (chatId) => {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('title')
+    .eq('id', chatId)
+    .single();
+
+  if (error) {
+    console.error("Error fetching title:", error);
+    return "Current Conversation";
+  }
+  return data?.title || "New Chat";
+};

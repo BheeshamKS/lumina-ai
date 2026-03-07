@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Logo } from "./logo";
 import {
-  Zap,
   Plus,
   ChevronDown,
   ArrowRight,

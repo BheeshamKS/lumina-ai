@@ -11,11 +11,13 @@ import { supabase } from "./utils/supabase";
 import { Sidebar } from "./components/sidebar";
 import { ChatPage } from "./pages/ChatPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { AuthModal } from "./components/authModal";
 
 function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [session, setSession] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add("dark");
@@ -28,58 +30,56 @@ function App() {
       .then(({ data: { session } }) => setSession(session));
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) =>
-      setSession(session),
-    );
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) setShowAuthModal(false);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
   return (
     <Router>
       <div className="flex h-screen bg-app font-sans antialiased">
-        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        {/* Pass all Auth state down to the Sidebar */}
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          session={session}
+          onOpenAuth={() => setShowAuthModal(true)}
+        />
         <main className="flex-1 flex flex-col items-center relative bg-app overflow-hidden">
-          <div className="absolute top-6 right-6 flex items-center gap-3 z-10">
-            <div className="px-3 py-1 bg-card border border-border-main rounded-full text-[12px] text-card-text flex gap-2 shadow-sm">
-              <span>{session ? "Pro Plan" : "Guest Mode"}</span>
-              <span className="opacity-30">|</span>
-              {session ? (
-                <button
-                  onClick={() => supabase.auth.signOut()}
-                  className="hover:text-accent transition-colors"
-                >
-                  Sign Out
-                </button>
-              ) : (
-                <span className="text-placeholder">3 free prompts</span>
-              )}
-            </div>
+          {/* TOP RIGHT: Just the Dark Mode Toggle now */}
+          <div className="absolute top-6 right-6 flex items-center z-10">
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 hover:bg-card-hover rounded-full transition-all text-card-text hover:text-card-text-hover"
+              className="p-2 bg-card border border-border-main hover:bg-card-hover rounded-full transition-all text-card-text hover:text-card-text-hover shadow-sm"
             >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
           </div>
 
           <Routes>
-            {/* Redirect the root URL to /new */}
             <Route path="/" element={<Navigate to="/new" replace />} />
-
-            {/* The empty "New Chat" state */}
             <Route
               path="/new"
               element={<ChatPage darkMode={darkMode} session={session} />}
             />
-
-            {/* The active chat state with a unique ID */}
             <Route
               path="/chat/:chatId"
               element={<ChatPage darkMode={darkMode} session={session} />}
             />
-
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route
+              path="/settings"
+              element={
+                session ? <SettingsPage /> : <Navigate to="/new" replace />
+              }
+            />
           </Routes>
+
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+          />
         </main>
       </div>
     </Router>

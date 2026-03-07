@@ -2,7 +2,11 @@ import { Copy, Check } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getUserConfiguredProviders } from "../utils/apiKeys";
-import { MODEL_REGISTRY, getEnabledModels } from "../utils/models";
+import {
+  MODEL_REGISTRY,
+  GUEST_DEFAULT_MODEL,
+  getEnabledModels,
+} from "../utils/models";
 import { sendMessageToLLM } from "../utils/llmRouter";
 
 import { ChatArea } from "../components/chatArea";
@@ -14,7 +18,7 @@ import {
   saveMessage,
   updateConversationTitle,
   getChatMessages,
-  getConversationTitle, // <--- ADDED!
+  getConversationTitle,
 } from "../utils/chatHistory";
 
 export const ChatPage = ({ darkMode, session }) => {
@@ -27,7 +31,7 @@ export const ChatPage = ({ darkMode, session }) => {
 
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
-  const [chatTitle, setChatTitle] = useState(""); // <--- ADDED!
+  const [chatTitle, setChatTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const [guestPromptCount, setGuestPromptCount] = useState(0);
@@ -35,7 +39,7 @@ export const ChatPage = ({ darkMode, session }) => {
 
   const textAreaRef = useRef(null);
   const chatEndRef = useRef(null);
-  const isCreatingChat = useRef(false); // <--- ADDED (Fixes the screen wipe bug!)
+  const isCreatingChat = useRef(false);
 
   const hour = new Date().getHours();
   let greeting = "Good evening";
@@ -47,25 +51,63 @@ export const ChatPage = ({ darkMode, session }) => {
   const [isCheckingKeys, setIsCheckingKeys] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
 
+  // ── FEATURE 1 & 3: Key Check + Filtered Model Loading ──
+  // Runs whenever session changes (login/logout) or chatId changes.
+  // Builds the available model list by checking which providers have keys.
   useEffect(() => {
     const loadEnabledModels = async () => {
       setIsModelsLoading(true);
       try {
-        const enabledIds = await getEnabledModels();
-        const filtered = MODEL_REGISTRY.filter((m) =>
-          enabledIds.includes(m.id),
-        );
-        setAvailableModels(filtered);
-
-        if (filtered.length > 0 && !activeModel) {
-          setActiveModel(filtered[0]);
+        // Step 1: Get which providers the user has keys for
+        let configuredProviders = [];
+        if (session) {
+          configuredProviders = await getUserConfiguredProviders();
         }
+
+        // Step 2: Get the full list of model IDs the user has enabled
+        const enabledIds = await getEnabledModels();
+
+        const guestModel = MODEL_REGISTRY.find((m) => m.isGuestModel);
+
+        // Guest sees only the one free model — nothing else
+        if (!session) {
+          setAvailableModels([guestModel]);
+          setActiveModel(guestModel);
+          setIsModelsLoading(false);
+          return;
+        }
+
+        const filtered = MODEL_REGISTRY.filter((m) => {
+          if (!enabledIds.includes(m.id)) return false;
+          if (m.isGuestModel) return true;
+          return configuredProviders.includes(m.provider);
+        });
+
+        const finalList = [
+          guestModel,
+          ...filtered.filter((m) => !m.isGuestModel),
+        ];
+
+        setAvailableModels(finalList);
+
+        setActiveModel((prev) => {
+          const stillAvailable =
+            prev && finalList.some((m) => m.id === prev.id);
+          if (stillAvailable) return prev;
+
+          const firstRealModel = finalList.find((m) => !m.isGuestModel);
+          return firstRealModel || guestModel;
+        });
       } catch (error) {
         console.error("Error loading models:", error);
+        // Fail-safe: always give the user at least the free model
+        setAvailableModels([GUEST_DEFAULT_MODEL]);
+        setActiveModel(GUEST_DEFAULT_MODEL);
       } finally {
         setIsModelsLoading(false);
       }
     };
+
     loadEnabledModels();
   }, [session]);
 
@@ -84,11 +126,12 @@ export const ChatPage = ({ darkMode, session }) => {
 
   useEffect(() => {
     if (textAreaRef.current) {
+      const minHeight = messages.length === 0 ? 60 : 44; // px — adjust these
       textAreaRef.current.style.height = "auto";
-      textAreaRef.current.style.height =
-        textAreaRef.current.scrollHeight + "px";
+      const newHeight = Math.max(textAreaRef.current.scrollHeight, minHeight);
+      textAreaRef.current.style.height = newHeight + "px";
     }
-  }, [input]);
+  }, [input, messages.length]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -105,15 +148,13 @@ export const ChatPage = ({ darkMode, session }) => {
   useEffect(() => {
     const loadChat = async () => {
       if (chatId) {
-        // Prevent screen wipe when we just hit send!
         if (isCreatingChat.current) {
           isCreatingChat.current = false;
           return;
         }
-
         setIsLoading(true);
         const history = await getChatMessages(chatId);
-        const fetchedTitle = await getConversationTitle(chatId); // <--- ADDED!
+        const fetchedTitle = await getConversationTitle(chatId);
         setMessages(history);
         setChatTitle(fetchedTitle);
         setIsLoading(false);
@@ -142,7 +183,7 @@ export const ChatPage = ({ darkMode, session }) => {
       const isFirstMessage = messages.length === 0 && !chatId;
 
       if (isFirstMessage) {
-        isCreatingChat.current = true; // Flag that we are creating a chat!
+        isCreatingChat.current = true;
         currentChatId = Math.random().toString(36).substring(2, 11);
         if (session) await createConversation(currentChatId);
         navigate(`/chat/${currentChatId}`, { replace: true });
@@ -165,9 +206,7 @@ export const ChatPage = ({ darkMode, session }) => {
 
       if (session && currentChatId) {
         saveMessage(currentChatId, "ai", responseText);
-
         if (isFirstMessage) {
-          // Trigger the new OpenRouter free title generator!
           generateBackgroundTitle(currentChatId, userText);
         }
       }
@@ -277,6 +316,7 @@ export const ChatPage = ({ darkMode, session }) => {
         activeModel={activeModel}
         setActiveModel={setActiveModel}
         availableModels={availableModels}
+        session={session}
       />
 
       <AuthModal
@@ -297,13 +337,13 @@ export const ChatPage = ({ darkMode, session }) => {
   );
 };
 
-// --- NEW 100% FREE OPENROUTER TITLE GENERATOR ---
+// --- TITLE GENERATOR ---
 const generateBackgroundTitle = async (chatId, firstMessage) => {
   try {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const guestKey = import.meta.env.VITE_GUEST_API_KEY;
-    if (!guestKey) return; // Silent fail if no key is in .env
+    if (!guestKey) return;
 
     const prompt = `Based on this user message: "${firstMessage}", create a descriptive title.
                     REQUIREMENTS: 
@@ -321,7 +361,7 @@ const generateBackgroundTitle = async (chatId, firstMessage) => {
           Authorization: `Bearer ${guestKey}`,
         },
         body: JSON.stringify({
-          model: "meta-llama/llama-3-8b-instruct:free",
+          model: "openrouter/auto",
           messages: [{ role: "user", content: prompt }],
         }),
       },
@@ -329,7 +369,6 @@ const generateBackgroundTitle = async (chatId, firstMessage) => {
 
     const data = await response.json();
     let newTitle = data.choices[0].message.content.trim().replace(/[*"']/g, "");
-
     await updateConversationTitle(chatId, newTitle);
   } catch (err) {
     console.error("Title generation failed:", err);

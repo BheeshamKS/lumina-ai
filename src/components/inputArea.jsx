@@ -28,12 +28,13 @@ export const InputArea = ({
   greeting,
   activeModel,
   setActiveModel,
-  availableModels = [], // <-- Accept the new prop here
+  availableModels = [],
+  session, // ── FEATURE 4: needed to show guest footer
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  // DYNAMIC GROUPING: Take the flat list from the DB and group it by provider
+  // Group models by provider for the dropdown
   const groupedModels = availableModels.reduce((acc, model) => {
     if (!acc[model.provider]) {
       acc[model.provider] = { provider: model.provider, models: [] };
@@ -42,10 +43,11 @@ export const InputArea = ({
     return acc;
   }, {});
 
-  // Convert the grouped object into an array so React can map over it
   const availableProviders = Object.values(groupedModels);
 
-  // Close menu if user clicks outside of it
+  // ── FEATURE 4: Show the guest upsell footer if user has no session
+  const isGuest = !session;
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -82,7 +84,7 @@ export const InputArea = ({
           </div>
         )}
 
-        {/* INPUT BOX WRAPPER */}
+        {/* INPUT BOX */}
         <div className="relative bg-inputcard rounded-[22px] px-3 py-2 border border-border-main hover:border-border-hover focus-within:border-border-hover focus-within:shadow-[0_0_40px_-10px_rgba(0,0,0,0.05)] dark:focus-within:shadow-[0_0_40px_-10px_rgba(0,0,0,0.2)] transition-all duration-200 shadow-sm z-10">
           <textarea
             ref={textAreaRef}
@@ -93,7 +95,7 @@ export const InputArea = ({
               messagesLength === 0 ? "How can I help you today?" : "Reply..."
             }
             rows="1"
-            className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[16px] font-sans leading-normal text-outputmassage placeholder-placeholder max-h-100 ${messagesLength === 0 ? "min-h-15" : "min-h-10"}`}
+            className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[16px] font-sans leading-normal text-outputmassage placeholder-placeholder max-h-100 ${messagesLength === 0 ? "min-h-15" : "min-h-6"}`}
           />
 
           <div className="flex justify-between items-center mt-1 pt px-1">
@@ -102,7 +104,7 @@ export const InputArea = ({
             </button>
 
             <div className="flex items-center gap-3 text-card-text text-xs font-medium">
-              {/* DYNAMIC MODEL SELECTOR */}
+              {/* MODEL SELECTOR */}
               <div className="relative" ref={menuRef}>
                 <div
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -117,9 +119,10 @@ export const InputArea = ({
                   />
                 </div>
 
-                {/* THE FLOATING MENU */}
+                {/* FLOATING DROPDOWN */}
                 {isMenuOpen && (
-                  <div className="absolute bottom-full right-0 mb-2 w-56 bg-card border border-border-main rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="absolute bottom-full right-0 mb-2 w-64 bg-card border border-border-main rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    {/* Model list */}
                     <div className="max-h-80 overflow-y-auto p-1.5 space-y-2 no-scrollbar">
                       {availableProviders.length > 0 ? (
                         availableProviders.map((group) => (
@@ -135,9 +138,19 @@ export const InputArea = ({
                                 }
                                 className="w-full flex items-center justify-between px-2.5 py-2 text-[13px] text-card-text hover:bg-card-hover hover:text-card-text-hover rounded-lg transition-colors text-left"
                               >
-                                <span className="truncate">{model.name}</span>
+                                <div className="flex flex-col">
+                                  <span className="truncate">{model.name}</span>
+                                  {model.type && (
+                                    <span className="text-[10px] text-placeholder mt-0.5">
+                                      {model.type}
+                                    </span>
+                                  )}
+                                </div>
                                 {activeModel?.id === model.id && (
-                                  <Check size={14} className="text-accent" />
+                                  <Check
+                                    size={14}
+                                    className="text-accent shrink-0 ml-2"
+                                  />
                                 )}
                               </button>
                             ))}
@@ -154,6 +167,19 @@ export const InputArea = ({
                         </div>
                       )}
                     </div>
+
+                    {/* ── FEATURE 4: Guest upsell footer ── */}
+                    {isGuest && (
+                      <div className="border-t border-border-main px-3 py-2.5 bg-card">
+                        <p className="text-[11px] text-placeholder leading-relaxed">
+                          Sign up and add your own API keys in{" "}
+                          <span className="text-accent font-medium">
+                            Settings
+                          </span>{" "}
+                          to unlock more models.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

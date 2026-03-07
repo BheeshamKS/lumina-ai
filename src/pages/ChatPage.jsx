@@ -66,7 +66,6 @@ export const ChatPage = ({ darkMode, session }) => {
 
         // Step 2: Get the full list of model IDs the user has enabled
         const enabledIds = await getEnabledModels();
-
         const guestModel = MODEL_REGISTRY.find((m) => m.isGuestModel);
 
         // Guest sees only the one free model — nothing else
@@ -77,16 +76,11 @@ export const ChatPage = ({ darkMode, session }) => {
           return;
         }
 
-        const filtered = MODEL_REGISTRY.filter((m) => {
-          if (!enabledIds.includes(m.id)) return false;
-          if (m.isGuestModel) return true;
-          return configuredProviders.includes(m.provider);
+        const finalList = MODEL_REGISTRY.filter((m) => {
+          if (m.isGuestModel) return false; // 1. Never show the guest model
+          if (!enabledIds.includes(m.id)) return false; // 2. Must be enabled
+          return configuredProviders.includes(m.provider); // 3. Must have an API key configured
         });
-
-        const finalList = [
-          guestModel,
-          ...filtered.filter((m) => !m.isGuestModel),
-        ];
 
         setAvailableModels(finalList);
 
@@ -95,8 +89,8 @@ export const ChatPage = ({ darkMode, session }) => {
             prev && finalList.some((m) => m.id === prev.id);
           if (stillAvailable) return prev;
 
-          const firstRealModel = finalList.find((m) => !m.isGuestModel);
-          return firstRealModel || guestModel;
+          // If their previous model is gone, default to the first one they actually have a key for
+          return finalList.length > 0 ? finalList[0] : null;
         });
       } catch (error) {
         console.error("Error loading models:", error);

@@ -79,16 +79,12 @@ export const getEnabledModels = async () => {
     .select("model_id");
 
   if (data && data.length > 0) {
-    // Always inject the guest free model so it's always in the list
-    const ids = data.map((d) => d.model_id);
-      if (!ids.includes(GUEST_DEFAULT_MODEL.id)) {
-        ids.push(GUEST_DEFAULT_MODEL.id); 
-      }
-return ids;
+    // Return EXACTLY what the user enabled, no forced guest model!
+    return data.map((d) => d.model_id);
   }
 
-  // Logged-in but no models saved yet — return defaults
-  return MODEL_REGISTRY.filter((m) => m.isDefault).map((m) => m.id);
+  // Logged-in but no models saved yet — return defaults, BUT explicitly exclude the guest model
+  return MODEL_REGISTRY.filter((m) => m.isDefault && !m.isGuestModel).map((m) => m.id);
 };
 
 export const toggleModelEnabled = async (modelId, isEnabled) => {

@@ -12,6 +12,7 @@ import { Sidebar } from "./components/sidebar";
 import { ChatPage } from "./pages/ChatPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AuthModal } from "./components/authModal";
+import { convertGuestToUser } from "./utils/chatHistory";
 
 function App() {
   const [darkMode, setDarkMode] = useState(true);
@@ -25,14 +26,26 @@ function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => setSession(session));
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        await convertGuestToUser(session.user.id);
+      }
+    });
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      if (session) setShowAuthModal(false);
+
+      if (session) {
+        setShowAuthModal(false);
+        await convertGuestToUser(session.user.id);
+
+        if (window.location.hash) {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+      }
     });
     return () => subscription.unsubscribe();
   }, []);

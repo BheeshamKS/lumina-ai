@@ -45,7 +45,7 @@ export const AuthModal = ({ isOpen, onClose }) => {
         provider: "google",
         options: {
           // This ensures Google kicks them back to your app after they click their account
-          redirectTo: window.location.origin,
+          redirectTo: window.location.href,
         },
       });
       if (error) throw error;

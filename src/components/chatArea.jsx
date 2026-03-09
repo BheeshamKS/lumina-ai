@@ -63,17 +63,14 @@ export const ChatArea = ({
     <div className="w-full flex-1 overflow-y-auto pb-40 flex flex-col items-center relative">
       {/* THE NEW TOP GRADIENT HEADER - FULL WIDTH */}
       <div className="sticky top-0 z-30 w-full flex items-center justify-between bg-gradient-to-b from-app from-[60%] to-transparent pt-6 pb-10 px-6 md:px-8 pointer-events-none">
-        {/* Chat Title - Touching the left side */}
-        <h3 className="text-[14px] font-medium text-card-text truncate max-w-[60%] pointer-events-auto">
-          {messages.length > 0 ? chatTitle : ""}
+        {/* Clean, simple title logic: If there are messages but no title yet, just say 'Untitled' */}
+        <h3 className="text-[14px] font-medium text-card-text truncate max-w-[60%] pointer-events-auto min-h-[20px]">
+          {messages.length > 0 ? chatTitle || "Untitled" : ""}
         </h3>
 
-        {/* Future Action Buttons - Pushed to the far right */}
-        <div className="flex items-center gap-2 shrink-0 pointer-events-auto">
-          {/* We will drop your new buttons right here later! */}
-        </div>
+        {/* Future Action Buttons Container - Left intentionally empty for now! */}
+        <div className="flex items-center gap-2 shrink-0 pointer-events-auto"></div>
       </div>
-
       <div className="w-full max-w-3xl px-4 space-y-10">
         {messages.map((msg, idx) => {
           // --- ADD THESE TWO LINES ---

@@ -1,45 +1,76 @@
 import { supabase } from "./supabase";
 
-// 1. Create a new empty conversation
+// --- GUEST ID GENERATOR ---
+export const getOrCreateGuestId = () => {
+  let guestId = localStorage.getItem("lumina_guest_id");
+  if (!guestId) {
+    guestId = `guest_${Math.random().toString(36).substring(2, 15)}`;
+    localStorage.setItem("lumina_guest_id", guestId);
+  }
+  return guestId;
+};
+
+// --- MIGRATION FUNCTION ---
+
+export const convertGuestToUser = async (realUserId) => {
+  const guestId = localStorage.getItem("lumina_guest_id");
+  if (!guestId) return; // If they aren't migrating a guest chat, do nothing!
+
+  try {
+    // 1. Transfer ownership of the chat room
+    await supabase.from("conversations").update({ user_id: realUserId }).eq("user_id", guestId);
+    
+    // 2. Transfer ownership of the messages inside
+    await supabase.from("messages").update({ user_id: realUserId }).eq("user_id", guestId);
+
+    // 3. Destroy the temporary guest ID
+    localStorage.removeItem("lumina_guest_id");
+    console.log("Successfully migrated guest chat to user!");
+
+    window.dispatchEvent(new Event("migrationComplete"));
+    
+  } catch (error) {
+    console.error("Migration failed:", error);
+  }
+};
+
+// --- UPDATED DB FUNCTIONS ---
 export const createConversation = async (chatId) => {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return;
+  const currentUserId = session ? session.user.id : getOrCreateGuestId(); // Use Guest ID if logged out
 
   await supabase.from('conversations').insert({
     id: chatId,
-    user_id: session.user.id,
-    title: "New Chat" // Default title until the AI renames it
+    user_id: currentUserId,
+    title: "New Chat" 
   });
 };
 
-// 2. Save a single message
 export const saveMessage = async (chatId, role, content) => {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return;
+  const currentUserId = session ? session.user.id : getOrCreateGuestId();
 
   await supabase.from('messages').insert({
     conversation_id: chatId,
-    user_id: session.user.id,
+    user_id: currentUserId,
     role: role,
     content: content
   });
 };
 
-// 3. Update the conversation title (used by the AI in the background)
 export const updateConversationTitle = async (chatId, title) => {
   await supabase.from('conversations').update({ title }).eq('id', chatId);
 };
 
-// Update this to only fetch active chats
 export const getConversations = async () => {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return [];
+  const currentUserId = session ? session.user.id : getOrCreateGuestId();
 
   const { data } = await supabase
     .from('conversations')
     .select('*')
-    .eq('user_id', session.user.id)
-    .eq('is_archived', false) // Only show non-archived chats
+    .eq('user_id', currentUserId)
+    .eq('is_archived', false)
     .order('created_at', { ascending: false });
 
   return data || [];
@@ -49,7 +80,6 @@ export const archiveConversation = async (chatId) => {
   await supabase.from('conversations').update({ is_archived: true }).eq('id', chatId);
 };
 
-// 5. Fetch all messages when a user clicks a chat in the sidebar
 export const getChatMessages = async (chatId) => {
   const { data, error } = await supabase
     .from('messages')
@@ -61,13 +91,12 @@ export const getChatMessages = async (chatId) => {
   return data || [];
 };
 
-// 6. Fetch a single conversation's title
 export const getConversationTitle = async (chatId) => {
   const { data, error } = await supabase
     .from('conversations')
     .select('title')
     .eq('id', chatId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error("Error fetching title:", error);
@@ -75,3 +104,4 @@ export const getConversationTitle = async (chatId) => {
   }
   return data?.title || "New Chat";
 };
+

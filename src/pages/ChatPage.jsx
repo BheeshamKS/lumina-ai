@@ -38,8 +38,10 @@ export const ChatPage = ({ darkMode, session }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const textAreaRef = useRef(null);
+  const prevSessionRef = useRef(session);
   const chatEndRef = useRef(null);
   const isCreatingChat = useRef(false);
+  const isMigratingRef = useRef(false);
 
   const hour = new Date().getHours();
   let greeting = "Good evening";
@@ -141,7 +143,7 @@ export const ChatPage = ({ darkMode, session }) => {
 
   useEffect(() => {
     const loadChat = async () => {
-      if (chatId) {
+      if (chatId && !isMigratingRef.current) {
         if (isCreatingChat.current) {
           isCreatingChat.current = false;
           return;
@@ -155,7 +157,27 @@ export const ChatPage = ({ darkMode, session }) => {
       }
     };
     loadChat();
-  }, [chatId]);
+
+    window.addEventListener("migrationComplete", loadChat);
+
+    // Cleanup listener when the component unmounts
+    return () => window.removeEventListener("migrationComplete", loadChat);
+  }, [chatId]); // Keep this dependency array the same
+
+  // --- LOGIN/LOGOUT TRANSITION WATCHER ---
+
+  useEffect(() => {
+    const wasLoggedIn = !!prevSessionRef.current;
+    const isNowLoggedIn = !!session;
+
+    if (wasLoggedIn && !isNowLoggedIn) {
+      navigate("/", { replace: true });
+      setMessages([]);
+      setChatTitle("");
+    }
+
+    prevSessionRef.current = session;
+  }, [session]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -179,11 +201,11 @@ export const ChatPage = ({ darkMode, session }) => {
       if (isFirstMessage) {
         isCreatingChat.current = true;
         currentChatId = Math.random().toString(36).substring(2, 11);
-        if (session) await createConversation(currentChatId);
+        await createConversation(currentChatId);
         navigate(`/chat/${currentChatId}`, { replace: true });
       }
 
-      if (session && currentChatId) {
+      if (currentChatId) {
         saveMessage(currentChatId, "user", userText);
       }
 
@@ -198,7 +220,7 @@ export const ChatPage = ({ darkMode, session }) => {
       );
       setMessages((prev) => [...prev, { role: "ai", content: responseText }]);
 
-      if (session && currentChatId) {
+      if (currentChatId) {
         saveMessage(currentChatId, "ai", responseText);
         if (isFirstMessage) {
           generateBackgroundTitle(currentChatId, userText);

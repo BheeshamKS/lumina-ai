@@ -42,8 +42,12 @@ function App() {
         setShowAuthModal(false);
         await convertGuestToUser(session.user.id);
 
-        if (window.location.hash) {
-          window.history.replaceState(null, "", window.location.pathname);
+        if (window.location.href.includes("#")) {
+          window.history.replaceState(
+            null,
+            "",
+            window.location.href.split("#")[0],
+          );
         }
       }
     });

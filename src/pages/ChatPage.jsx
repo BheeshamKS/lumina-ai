@@ -32,7 +32,9 @@ export const ChatPage = ({ darkMode, session }) => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [chatTitle, setChatTitle] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(() => {
+    return window.location.hash.includes("access_token");
+  });
 
   const [guestPromptCount, setGuestPromptCount] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -143,11 +145,21 @@ export const ChatPage = ({ darkMode, session }) => {
 
   useEffect(() => {
     const loadChat = async () => {
-      if (chatId && !isMigratingRef.current) {
+      if (chatId) {
+        // 🚨 THE FIX: Only freeze the UI if we are actively returning from Google OAuth,
+        // or if the email login migration lock is currently active.
+        if (
+          window.location.hash.includes("access_token") ||
+          window.isMigratingChat
+        ) {
+          return; // Let the pre-loaded spinner hold the screen!
+        }
+
         if (isCreatingChat.current) {
           isCreatingChat.current = false;
           return;
         }
+
         setIsLoading(true);
         const history = await getChatMessages(chatId);
         const fetchedTitle = await getConversationTitle(chatId);
@@ -156,13 +168,11 @@ export const ChatPage = ({ darkMode, session }) => {
         setIsLoading(false);
       }
     };
+
     loadChat();
-
     window.addEventListener("migrationComplete", loadChat);
-
-    // Cleanup listener when the component unmounts
     return () => window.removeEventListener("migrationComplete", loadChat);
-  }, [chatId]); // Keep this dependency array the same
+  }, [chatId]);
 
   // --- LOGIN/LOGOUT TRANSITION WATCHER ---
 

@@ -11,26 +11,29 @@ export const getOrCreateGuestId = () => {
 };
 
 // --- MIGRATION FUNCTION ---
-
 export const convertGuestToUser = async (realUserId) => {
   const guestId = localStorage.getItem("lumina_guest_id");
-  if (!guestId) return; // If they aren't migrating a guest chat, do nothing!
+  if (!guestId) return;
+
+  if (window.isMigratingChat) return;
+  window.isMigratingChat = true;
 
   try {
-    // 1. Transfer ownership of the chat room
     await supabase.from("conversations").update({ user_id: realUserId }).eq("user_id", guestId);
-    
-    // 2. Transfer ownership of the messages inside
     await supabase.from("messages").update({ user_id: realUserId }).eq("user_id", guestId);
 
-    // 3. Destroy the temporary guest ID
     localStorage.removeItem("lumina_guest_id");
     console.log("Successfully migrated guest chat to user!");
-
-    window.dispatchEvent(new Event("migrationComplete"));
     
+    // 🚨 THE FIX: Turn off the lock BEFORE dispatching the event!
+    window.isMigratingChat = false;
+    
+    // Now ChatPage will see the lock is off when it hears this signal
+    window.dispatchEvent(new Event("migrationComplete"));
   } catch (error) {
     console.error("Migration failed:", error);
+    // Make sure to unlock even if it fails
+    window.isMigratingChat = false; 
   }
 };
 

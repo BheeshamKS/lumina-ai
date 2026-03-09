@@ -146,12 +146,13 @@ export const ChatPage = ({ darkMode, session }) => {
   useEffect(() => {
     const loadChat = async () => {
       if (chatId) {
-        // 🚨 THE FIX: Only freeze the UI if we are actively returning from Google OAuth,
+        // 🚨 THE FIX: Freeze the UI if we are actively returning from Google OAuth,
         // or if the email login migration lock is currently active.
         if (
           window.location.hash.includes("access_token") ||
           window.isMigratingChat
         ) {
+          setIsLoading(true);
           return; // Let the pre-loaded spinner hold the screen!
         }
 
@@ -170,7 +171,10 @@ export const ChatPage = ({ darkMode, session }) => {
     };
 
     loadChat();
+
     window.addEventListener("migrationComplete", loadChat);
+
+    // Cleanup listener when the component unmounts
     return () => window.removeEventListener("migrationComplete", loadChat);
   }, [chatId]);
 

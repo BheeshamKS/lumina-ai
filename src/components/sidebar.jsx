@@ -12,14 +12,14 @@ import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../utils/supabase";
 import { getConversations, archiveConversation } from "../utils/chatHistory";
 
-const SidebarItem = ({ icon, label, isOpen, to, isActive }) => (
+const SidebarItem = ({ icon, label, isOpen, to }) => (
   <Link
     to={to || "#"}
-    className={`flex items-center ${isOpen ? "justify-start px-3" : "justify-center"} py-2.5 hover:bg-card-hover rounded-xl cursor-pointer text-card-text hover:text-card-text-hover transition-colors`}
+    className="flex items-center py-2.5 hover:bg-card-hover rounded-xl cursor-pointer text-card-text hover:text-card-text-hover transition-colors w-full"
   >
-    <div className="shrink-0">{icon}</div>
+    <div className="w-12 flex items-center justify-center shrink-0">{icon}</div>
     <span
-      className={`text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? "w-48 ml-3 opacity-100" : "w-0 ml-0 opacity-0"}`}
+      className={`text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? "w-48 opacity-100" : "w-0 opacity-0"}`}
     >
       {label}
     </span>
@@ -173,8 +173,10 @@ export const Sidebar = ({
   };
 
   return (
-    // THE FIX: We wrap EVERYTHING in a relative container so the dropdown can float outside the aside
-    <div className="relative h-full z-30" ref={dropdownRef}>
+    <div
+      className={`relative h-full z-30 shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${sidebarOpen ? "w-72" : "w-12"}`}
+      ref={dropdownRef}
+    >
       {/* THE DROPDOWN MENU - Now completely immune to overflow-hidden! */}
       {isDropdownOpen && session && (
         <div
@@ -199,31 +201,31 @@ export const Sidebar = ({
 
       {/* THE ACTUAL SIDEBAR */}
       <aside
-        className={`h-full ${sidebarOpen ? "w-72" : "w-12"} border-r border-sidebar-border bg-card flex flex-col transition-[width] duration-300 ease-in-out shrink-0 overflow-hidden`}
+        className={`absolute inset-y-0 left-0 bg-card border-r border-sidebar-border flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden ${sidebarOpen ? "w-72" : "w-12"}`}
       >
         <div className="pt-3 flex flex-col h-full">
-          <div
-            className={`flex items-center mb-6 transition-all duration-300 ${sidebarOpen ? "justify-between px-4" : "justify-center"}`}
-          >
+          <div className="flex items-center mb-6 justify-between">
             <div
-              className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${sidebarOpen ? "w-32 opacity-100" : "w-0 opacity-0"}`}
+              className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${sidebarOpen ? "w-32 opacity-100 ml-4" : "w-0 opacity-0 ml-0"}`}
             >
               <span className="font-medium font-serif text-[22px] tracking-tight text-card-text-hover">
                 Lumina
               </span>
             </div>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 hover:bg-card-hover rounded-md transition-colors shrink-0"
-            >
-              <LayoutGrid
-                size={18}
-                className="text-card-text hover:text-card-text-hover transition-colors"
-              />
-            </button>
+            <div className="w-12 flex items-center justify-center shrink-0">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-1.5 hover:bg-card-hover rounded-md transition-colors shrink-0"
+              >
+                <LayoutGrid
+                  size={18}
+                  className="text-card-text hover:text-card-text-hover transition-colors"
+                />
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-1 px-1">
+          <div className="space-y-1">
             <SidebarItem
               icon={<Plus size={20} />}
               label="New chat"

@@ -145,10 +145,19 @@ function App() {
               path="/chat/:chatId"
               element={<ChatPage darkMode={darkMode} session={session} />}
             />
+
             <Route
               path="/settings"
               element={
-                session ? <SettingsPage /> : <Navigate to="/new" replace />
+                session ? (
+                  <SettingsPage
+                    darkMode={darkMode}
+                    onToggleDark={setDarkMode}
+                    session={session}
+                  />
+                ) : (
+                  <Navigate to="/new" replace />
+                )
               }
             />
           </Routes>

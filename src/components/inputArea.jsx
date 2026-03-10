@@ -74,13 +74,13 @@ export const InputArea = ({
     >
       <div className="relative w-full">
         {messagesLength === 0 && (
-          <div className="absolute bottom-full left-0 w-full mb-10 text-center">
-            <Logo className="w-11 h-11 mx-auto mb-4" />
+          <div className="absolute bottom-full left-0 w-full mb-10 flex items-center justify-center gap-4">
+            <Logo className="w-10 h-10 shrink-0" />
             <h1
               className="text-4xl md:text-[40px] font-normal text-card-text tracking-tight"
               style={{ fontFamily: "Copernicus, Georgia, serif" }}
             >
-              {greeting}, Bheesham
+              {greeting}
             </h1>
           </div>
         )}

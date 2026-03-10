@@ -42,10 +42,19 @@ export const ChatPage = ({ darkMode, session }) => {
   const isCreatingChat = useRef(false);
 
   const hour = new Date().getHours();
-  let greeting = "Good evening";
-  if (hour >= 5 && hour < 12) greeting = "Good morning";
-  else if (hour >= 12 && hour < 18) greeting = "Good afternoon";
-  else if (hour >= 0 && hour < 5) greeting = "Moonlit chat?";
+  const firstName =
+    session?.user?.user_metadata?.["Display name"]?.split(" ")[0] ||
+    session?.user?.user_metadata?.full_name?.split(" ")[0] ||
+    session?.user?.user_metadata?.name?.split(" ")[0] ||
+    null;
+
+  let timeGreeting;
+  if (hour >= 5 && hour < 12) timeGreeting = "Good morning";
+  else if (hour >= 12 && hour < 18) timeGreeting = "Good afternoon";
+  else if (hour >= 18 && hour < 22) timeGreeting = "Good evening";
+  else timeGreeting = "Moonlit chat?";
+
+  const greeting = firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
 
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [isCheckingKeys, setIsCheckingKeys] = useState(true);

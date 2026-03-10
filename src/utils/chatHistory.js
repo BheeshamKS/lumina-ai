@@ -15,25 +15,14 @@ export const convertGuestToUser = async (realUserId) => {
   const guestId = localStorage.getItem("lumina_guest_id");
   if (!guestId) return;
 
-  if (window.isMigratingChat) return;
-  window.isMigratingChat = true;
-
   try {
     await supabase.from("conversations").update({ user_id: realUserId }).eq("user_id", guestId);
     await supabase.from("messages").update({ user_id: realUserId }).eq("user_id", guestId);
 
     localStorage.removeItem("lumina_guest_id");
     console.log("Successfully migrated guest chat to user!");
-    
-    // 🚨 THE FIX: Turn off the lock BEFORE dispatching the event!
-    window.isMigratingChat = false;
-    
-    // Now ChatPage will see the lock is off when it hears this signal
-    window.dispatchEvent(new Event("migrationComplete"));
   } catch (error) {
     console.error("Migration failed:", error);
-    // Make sure to unlock even if it fails
-    window.isMigratingChat = false; 
   }
 };
 
@@ -65,16 +54,21 @@ export const updateConversationTitle = async (chatId, title) => {
   await supabase.from('conversations').update({ title }).eq('id', chatId);
 };
 
-export const getConversations = async () => {
+export const getConversations = async (page = 0, limit = 15) => {
   const { data: { session } } = await supabase.auth.getSession();
   const currentUserId = session ? session.user.id : getOrCreateGuestId();
+
+  // Calculate the Supabase row ranges
+  const from = page * limit;
+  const to = from + limit - 1;
 
   const { data } = await supabase
     .from('conversations')
     .select('*')
     .eq('user_id', currentUserId)
     .eq('is_archived', false)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, to); // 🚨 THE FIX: Only fetch the specific chunk
 
   return data || [];
 };
@@ -83,15 +77,22 @@ export const archiveConversation = async (chatId) => {
   await supabase.from('conversations').update({ is_archived: true }).eq('id', chatId);
 };
 
-export const getChatMessages = async (chatId) => {
+export const getChatMessages = async (chatId, page = 0, limit = 50) => {
+  const from = page * limit;
+  const to = from + limit - 1;
+
   const { data, error } = await supabase
     .from('messages')
     .select('role, content')
     .eq('conversation_id', chatId)
-    .order('created_at', { ascending: true });
+    // 🚨 THE TRICK: Fetch the newest messages first so pagination works backwards
+    .order('created_at', { ascending: false }) 
+    .range(from, to);
 
   if (error) console.error("Error fetching messages:", error);
-  return data || [];
+  
+  // Flip the array back around so they show up chronologically on screen!
+  return data ? data.reverse() : [];
 };
 
 export const getConversationTitle = async (chatId) => {

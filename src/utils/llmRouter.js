@@ -67,6 +67,22 @@ export const sendMessageToLLM = async (messages, modelId) => {
 
   // 2. SEND THE UNIFIED REQUEST
   try {
+
+    const CONTEXT_LIMITS = {
+      Groq: 6,
+      Google: 50,
+      OpenRouter: 20,
+      OpenAI: 40,
+      DeepSeek: 40,
+      Mistral: 40,
+      xAI: 40,
+      Perplexity: 20,
+      TogetherAI: 20,
+    };
+    
+    const contextLimit = CONTEXT_LIMITS[model.provider] ?? 20;
+    const truncatedMessages = messages.slice(-contextLimit);
+
     const { text } = await generateText({
       model: aiModel,
       system: LUMINA_SYSTEM_PROMPT,

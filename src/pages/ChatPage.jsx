@@ -1,4 +1,3 @@
-import { Copy, Check } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getUserConfiguredProviders } from "../utils/apiKeys";
@@ -32,9 +31,7 @@ export const ChatPage = ({ darkMode, session }) => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [chatTitle, setChatTitle] = useState("");
-  const [isLoading, setIsLoading] = useState(() => {
-    return window.location.hash.includes("access_token");
-  });
+  const [isLoading, setIsLoading] = useState(!!chatId);
 
   const [guestPromptCount, setGuestPromptCount] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -43,7 +40,6 @@ export const ChatPage = ({ darkMode, session }) => {
   const prevSessionRef = useRef(session);
   const chatEndRef = useRef(null);
   const isCreatingChat = useRef(false);
-  const isMigratingRef = useRef(false);
 
   const hour = new Date().getHours();
   let greeting = "Good evening";
@@ -54,6 +50,11 @@ export const ChatPage = ({ darkMode, session }) => {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [isCheckingKeys, setIsCheckingKeys] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+
+  const [messagePage, setMessagePage] = useState(0);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const MESSAGES_PER_PAGE = 50;
 
   // ── FEATURE 1 & 3: Key Check + Filtered Model Loading ──
   // Runs whenever session changes (login/logout) or chatId changes.
@@ -146,37 +147,71 @@ export const ChatPage = ({ darkMode, session }) => {
   useEffect(() => {
     const loadChat = async () => {
       if (chatId) {
-        // 🚨 THE FIX: Freeze the UI if we are actively returning from Google OAuth,
-        // or if the email login migration lock is currently active.
-        if (
-          window.location.hash.includes("access_token") ||
-          window.isMigratingChat
-        ) {
+        if (window.isMigratingChat) {
           setIsLoading(true);
-          return; // Let the pre-loaded spinner hold the screen!
+          return;
         }
 
         if (isCreatingChat.current) {
           isCreatingChat.current = false;
+          setIsLoading(false);
           return;
         }
 
-        setIsLoading(true);
-        const history = await getChatMessages(chatId);
+        // Fresh load: reset pagination!
+        setMessagePage(0);
+        const history = await getChatMessages(chatId, 0, MESSAGES_PER_PAGE);
         const fetchedTitle = await getConversationTitle(chatId);
+
+        setHasMoreMessages(history.length === MESSAGES_PER_PAGE);
         setMessages(history);
         setChatTitle(fetchedTitle);
+        setIsLoading(false);
+      } else {
         setIsLoading(false);
       }
     };
 
     loadChat();
-
     window.addEventListener("migrationComplete", loadChat);
-
-    // Cleanup listener when the component unmounts
     return () => window.removeEventListener("migrationComplete", loadChat);
   }, [chatId]);
+
+  // 🚨 THE NEW UPWARD SCROLL FUNCTION
+  const loadOlderMessages = async () => {
+    if (isLoadingOlder || !hasMoreMessages || !chatId) return;
+
+    setIsLoadingOlder(true);
+    const nextPage = messagePage + 1;
+    const olderMessages = await getChatMessages(
+      chatId,
+      nextPage,
+      MESSAGES_PER_PAGE,
+    );
+
+    if (olderMessages.length > 0) {
+      // Save scroll position before prepending
+      const container = document.querySelector(".overflow-y-auto");
+      const scrollHeightBefore = container?.scrollHeight || 0;
+
+      setMessages((prev) => [...olderMessages, ...prev]);
+      setMessagePage(nextPage);
+
+      // After render, restore scroll position so user doesn't jump
+      requestAnimationFrame(() => {
+        if (container) {
+          const scrollHeightAfter = container.scrollHeight;
+          container.scrollTop = scrollHeightAfter - scrollHeightBefore;
+        }
+      });
+    }
+
+    if (olderMessages.length < MESSAGES_PER_PAGE) {
+      setHasMoreMessages(false); // Hit the beginning of time
+    }
+
+    setIsLoadingOlder(false);
+  };
 
   // --- LOGIN/LOGOUT TRANSITION WATCHER ---
 
@@ -322,6 +357,14 @@ export const ChatPage = ({ darkMode, session }) => {
     }
   };
 
+  if ((isModelsLoading || isCheckingKeys) && messages.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-app">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-sidebar-ring"></div>
+      </div>
+    );
+  }
+
   return (
     <>
       <ChatArea
@@ -333,6 +376,9 @@ export const ChatPage = ({ darkMode, session }) => {
         copiedMessageId={copiedMessageId}
         onRetry={handleRetry}
         chatTitle={chatTitle}
+        loadOlderMessages={loadOlderMessages}
+        hasMoreMessages={hasMoreMessages}
+        isLoadingOlder={isLoadingOlder}
       />
 
       <InputArea

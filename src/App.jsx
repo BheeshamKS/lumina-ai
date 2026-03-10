@@ -20,6 +20,8 @@ function App() {
   const [session, setSession] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  const [isAppReady, setIsAppReady] = useState(false);
+
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
@@ -53,6 +55,64 @@ function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    // 1. Check session and migrate BEFORE the app ever renders
+    const initializeApp = async () => {
+      try {
+        const {
+          data: { session: initialSession },
+          error,
+        } = await supabase.auth.getSession();
+        if (error) throw error; // If Supabase fails, catch it
+
+        setSession(initialSession);
+
+        if (initialSession) {
+          await convertGuestToUser(initialSession.user.id);
+
+          // Scrub the URL cleanly
+          if (window.location.href.includes("#")) {
+            window.history.replaceState(
+              null,
+              "",
+              window.location.href.split("#")[0],
+            );
+          }
+        }
+      } catch (error) {
+        // If literally anything breaks, it will print here instead of freezing the app
+        console.error("🔥 CRITICAL STARTUP ERROR:", error);
+      } finally {
+        // 🚨 THE FAIL-SAFE: This runs 100% of the time, guaranteeing the app unlocks!
+        setIsAppReady(true);
+      }
+    };
+
+    initializeApp();
+
+    // 2. Listen for normal logouts/logins while using the app
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      setSession(newSession);
+
+      if (newSession && event === "SIGNED_IN") {
+        setShowAuthModal(false);
+        await convertGuestToUser(newSession.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!isAppReady) {
+    return (
+      <div className="flex h-screen w-screen bg-app items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-sidebar-ring"></div>
+      </div>
+    );
+  }
 
   return (
     <Router>

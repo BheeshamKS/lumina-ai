@@ -1,10 +1,10 @@
 import { Copy, Check, ThumbsUp, ThumbsDown, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./codeBlock";
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Logo } from "./logo";
 
-export const ChatArea = ({
+export const ChatAreaBase = ({
   messages,
   isLoading,
   chatEndRef,
@@ -13,6 +13,9 @@ export const ChatArea = ({
   copiedMessageId,
   onRetry,
   chatTitle = "Current Conversation",
+  loadOlderMessages,
+  hasMoreMessages,
+  isLoadingOlder,
 }) => {
   const [feedbackState, setFeedbackState] = useState({});
 
@@ -60,7 +63,16 @@ export const ChatArea = ({
   };
 
   return (
-    <div className="w-full flex-1 overflow-y-auto pb-40 flex flex-col items-center relative">
+    <div
+      className="w-full flex-1 overflow-y-auto pb-40 flex flex-col items-center relative"
+      onScroll={(e) => {
+        const { scrollTop } = e.currentTarget;
+        if (scrollTop < 50 && hasMoreMessages) {
+          loadOlderMessages();
+        }
+      }}
+      style={{ overflowAnchor: "auto" }}
+    >
       {/* THE NEW TOP GRADIENT HEADER - FULL WIDTH */}
       <div className="sticky top-0 z-30 w-full flex items-center justify-between bg-gradient-to-b from-app from-[60%] to-transparent pt-6 pb-10 px-6 md:px-8 pointer-events-none">
         {/* Clean, simple title logic: If there are messages but no title yet, just say 'Untitled' */}
@@ -72,6 +84,12 @@ export const ChatArea = ({
         <div className="flex items-center gap-2 shrink-0 pointer-events-auto"></div>
       </div>
       <div className="w-full max-w-3xl px-4 space-y-10">
+        {isLoadingOlder && (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-sidebar-ring"></div>
+          </div>
+        )}
+
         {messages.map((msg, idx) => {
           // --- ADD THESE TWO LINES ---
           const isLastMessage = idx === messages.length - 1;
@@ -273,3 +291,13 @@ export const ChatArea = ({
     </div>
   );
 };
+
+export const ChatArea = memo(ChatAreaBase, (prevProps, nextProps) => {
+  return (
+    prevProps.messages === nextProps.messages &&
+    prevProps.isLoading === nextProps.isLoading &&
+    prevProps.isLoadingOlder === nextProps.isLoadingOlder &&
+    prevProps.copiedMessageId === nextProps.copiedMessageId &&
+    prevProps.darkMode === nextProps.darkMode
+  );
+});

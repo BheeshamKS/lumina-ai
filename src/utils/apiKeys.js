@@ -13,7 +13,6 @@ export const getAllUserKeys = async () => {
   return data || [];
 };
 
-// 2. Add a new key securely (DB encrypts before saving)
 export const addApiKey = async (provider, keyValue, keyName) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("No session");
@@ -25,6 +24,13 @@ export const addApiKey = async (provider, keyValue, keyName) => {
   });
 
   if (error) throw error;
+
+  // Auto-activate the key if it's the first one for this provider
+  const keys = await getAllUserKeys();
+  const providerKeys = keys.filter(k => k.provider === provider);
+  if (providerKeys.length === 1) {
+    await setActiveKey(provider, providerKeys[0].id);
+  }
 };
 
 // 3. Update an existing key securely (DB encrypts the new value)

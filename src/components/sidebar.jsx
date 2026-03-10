@@ -68,6 +68,11 @@ export const Sidebar = ({
   const [displayName, setDisplayName] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const CHATS_PER_PAGE = 15;
+
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -82,8 +87,10 @@ export const Sidebar = ({
 
   useEffect(() => {
     const fetchSidebarData = async () => {
-      const chats = await getConversations();
+      setPage(0); // Reset page on fresh load
+      const chats = await getConversations(0, CHATS_PER_PAGE);
       setRecentChats(chats);
+      setHasMore(chats.length === CHATS_PER_PAGE);
 
       if (session?.user) {
         // 1. FASTEST WAY: Check if Supabase already sent the name in the auth session metadata
@@ -122,6 +129,25 @@ export const Sidebar = ({
     };
     fetchSidebarData();
   }, [location.pathname, session]);
+
+  const loadMoreChats = async () => {
+    if (isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    const newChats = await getConversations(nextPage, CHATS_PER_PAGE);
+
+    if (newChats.length > 0) {
+      setRecentChats((prev) => [...prev, ...newChats]);
+      setPage(nextPage);
+    }
+
+    if (newChats.length < CHATS_PER_PAGE) {
+      setHasMore(false); // We reached the absolute end of their history
+    }
+
+    setIsLoadingMore(false);
+  };
 
   const handleArchive = async (id) => {
     setRecentChats((prev) => prev.filter((chat) => chat.id !== id));
@@ -216,6 +242,12 @@ export const Sidebar = ({
 
           <div
             className={`mt-8 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-1 transition-all duration-300 ease-in-out ${sidebarOpen ? "opacity-100" : "opacity-0 invisible pointer-events-none"}`}
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+              if (scrollHeight - scrollTop <= clientHeight + 20) {
+                loadMoreChats();
+              }
+            }}
           >
             <div className="w-[280px]">
               {" "}
@@ -236,6 +268,12 @@ export const Sidebar = ({
                   <p className="px-3 py-2 text-[12px] text-placeholder italic">
                     No recent chats
                   </p>
+                )}
+
+                {isLoadingMore && (
+                  <div className="flex justify-center py-3">
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-sidebar-ring"></div>
+                  </div>
                 )}
               </div>
             </div>

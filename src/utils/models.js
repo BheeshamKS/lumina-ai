@@ -1,89 +1,205 @@
 import { supabase } from "./supabase";
 
+// ==========================================
+// PROVIDER FETCH CONFIG
+// ==========================================
+export const PROVIDER_FETCH_CONFIG = {
+  OpenRouter: {
+    endpoint: "https://openrouter.ai/api/v1/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+    parseModels: (data) =>
+      data.data.map((m) => ({
+        id: m.id,
+        name: m.name || m.id,
+        provider: "OpenRouter",
+        type: m.pricing?.prompt === "0" ? "Free" : "Paid",
+        isFetched: true,
+      })),
+  },
+  Google: {
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/models",
+    authHeader: (key) => ({ "x-goog-api-key": key }),
+    parseModels: (data) =>
+      (data.models || [])
+        .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+        .map((m) => ({
+          id: m.name.replace("models/", ""),
+          name: m.displayName || m.name,
+          provider: "Google",
+          type: "API",
+          isFetched: true,
+        })),
+  },
+  Groq: {
+    endpoint: "https://api.groq.com/openai/v1/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+    parseModels: (data) =>
+      data.data.map((m) => ({
+        id: m.id,
+        name: m.id,
+        provider: "Groq",
+        type: "Free",
+        isFetched: true,
+      })),
+  },
+  OpenAI: {
+    endpoint: "https://api.openai.com/v1/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+    parseModels: (data) =>
+      data.data
+        .filter((m) => m.id.startsWith("gpt") || m.id.startsWith("o1") || m.id.startsWith("o3"))
+        .map((m) => ({
+          id: m.id,
+          name: m.id,
+          provider: "OpenAI",
+          type: "Paid",
+          isFetched: true,
+        })),
+  },
+  Mistral: {
+    endpoint: "https://api.mistral.ai/v1/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+    parseModels: (data) =>
+      data.data.map((m) => ({
+        id: m.id,
+        name: m.id,
+        provider: "Mistral",
+        type: "Paid",
+        isFetched: true,
+      })),
+  },
+  DeepSeek: {
+    endpoint: "https://api.deepseek.com/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+    parseModels: (data) =>
+      data.data.map((m) => ({
+        id: m.id,
+        name: m.id,
+        provider: "DeepSeek",
+        type: "Paid",
+        isFetched: true,
+      })),
+  },
+};
+
+// ==========================================
+// MODEL REGISTRY — free + popular only
+// Everything else is fetched via Browse Models
+// ==========================================
 export const MODEL_REGISTRY = [
-  // ==========================================
-  // GOOGLE MODELS (Native)
-  // ==========================================
+  // ── GOOGLE ──
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google", type: "Free (Fast)", isDefault: true },
   { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "Google", type: "Free (Strict Limit)", isDefault: true },
   { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", provider: "Google", type: "Free", isDefault: false },
 
-  // ==========================================
-  // OPENAI MODELS (Native)
-  // ==========================================
-  { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI", type: "Paid (Flagship)", isDefault: false },
+  // ── OPENAI ──
+  { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI", type: "Paid (Flagship)", isDefault: true },
   { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "OpenAI", type: "Paid (Cheap)", isDefault: false },
-  { id: "o1", name: "OpenAI o1", provider: "OpenAI", type: "Paid (Heavy Reasoning)", isDefault: false },
-  { id: "o3-mini", name: "OpenAI o3-mini", provider: "OpenAI", type: "Paid (Latest Reasoning)", isDefault: false },
+  { id: "o3-mini", name: "o3 Mini", provider: "OpenAI", type: "Paid (Reasoning)", isDefault: false },
 
-  // ==========================================
-  // GROQ MODELS
-  // ==========================================
-  { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", provider: "Groq", type: "Free (Fast)", isDefault: false },
+  // ── GROQ ──
+  { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", provider: "Groq", type: "Free (Fast)", isDefault: true },
   { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B", provider: "Groq", type: "Free (Ultra Fast)", isDefault: false },
-  { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", provider: "Groq", type: "Free (Flagship)", isDefault: false },
-  { id: "openai/gpt-oss-20b", name: "GPT OSS 20B", provider: "Groq", type: "Free (Ultra Fast)", isDefault: false },
-  { id: "meta-llama/llama-4-scout-17b-16e-instruct", name: "Llama 4 Scout", provider: "Groq", type: "Free (New)", isDefault: false },
+  { id: "meta-llama/llama-4-scout-17b-16e-instruct", name: "Llama 4 Scout", provider: "Groq", type: "Free", isDefault: false },
   { id: "qwen/qwen3-32b", name: "Qwen 3 32B", provider: "Groq", type: "Free", isDefault: false },
 
-  // ==========================================
-  // DEEPSEEK (Native)
-  // ==========================================
-  { id: "deepseek-chat", name: "DeepSeek V3", provider: "DeepSeek", type: "Paid (Flagship)", isDefault: false },
+  // ── DEEPSEEK ──
+  { id: "deepseek-chat", name: "DeepSeek V3", provider: "DeepSeek", type: "Paid (Flagship)", isDefault: true },
   { id: "deepseek-reasoner", name: "DeepSeek R1", provider: "DeepSeek", type: "Paid (Reasoning)", isDefault: false },
 
-  // ==========================================
-  // MISTRAL AI (Native)
-  // ==========================================
-  { id: "mistral-large-latest", name: "Mistral Large", provider: "Mistral", type: "Paid (Flagship)", isDefault: false },
+  // ── MISTRAL ──
+  { id: "mistral-large-latest", name: "Mistral Large", provider: "Mistral", type: "Paid (Flagship)", isDefault: true },
   { id: "codestral-latest", name: "Codestral", provider: "Mistral", type: "Paid (Coding)", isDefault: false },
 
-  // ==========================================
-  // xAI (Native)
-  // ==========================================
-  { id: "grok-2-latest", name: "Grok 2", provider: "xAI", type: "Paid (Flagship)", isDefault: false },
+  // ── xAI ──
+  { id: "grok-2-latest", name: "Grok 2", provider: "xAI", type: "Paid (Flagship)", isDefault: true },
 
-  // ==========================================
-  // PERPLEXITY (Native)
-  // ==========================================
+  // ── PERPLEXITY ──
+  { id: "sonar-pro", name: "Sonar Pro", provider: "Perplexity", type: "Paid (Search)", isDefault: true },
   { id: "sonar-reasoning-pro", name: "Sonar Reasoning Pro", provider: "Perplexity", type: "Paid (Search + Logic)", isDefault: false },
-  { id: "sonar-pro", name: "Sonar Pro", provider: "Perplexity", type: "Paid (Heavy Search)", isDefault: false },
 
-  // ==========================================
-  // TOGETHER AI
-  // ==========================================
-  { id: "meta-llama/Llama-3.3-70B-Instruct-Turbo", name: "Llama 3.3 70B (Turbo)", provider: "TogetherAI", type: "Paid (Fast)", isDefault: false },
+  // ── TOGETHER AI ──
+  { id: "meta-llama/Llama-3.3-70B-Instruct-Turbo", name: "Llama 3.3 70B Turbo", provider: "TogetherAI", type: "Paid (Fast)", isDefault: true },
   { id: "Qwen/Qwen2.5-Coder-32B-Instruct", name: "Qwen 2.5 Coder", provider: "TogetherAI", type: "Paid (Coding)", isDefault: false },
 
-  // ==========================================
-  // OPENROUTER — the FREE guest model is always available
-  // ==========================================
+  // ── OPENROUTER ──
   { id: "openrouter/auto", name: "Auto", provider: "OpenRouter", type: "Free", isDefault: true, isGuestModel: true },
-  { id: "anthropic/claude-3.7-sonnet", name: "Claude 3.7 Sonnet", provider: "OpenRouter", type: "Paid", isDefault: false },
-  { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku", provider: "OpenRouter", type: "Paid (Fast)", isDefault: false },
+  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B", provider: "OpenRouter", type: "Free", isDefault: true },
+  { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1", provider: "OpenRouter", type: "Free (Reasoning)", isDefault: false },
+  { id: "z-ai/glm-4.5-air:free", name: "GLM 4.5 Air", provider: "OpenRouter", type: "Free", isDefault: false },
+  { id: "anthropic/claude-3.7-sonnet", name: "Claude 3.7 Sonnet", provider: "OpenRouter", type: "Paid (Flagship)", isDefault: false },
+  { id: "openai/gpt-4o", name: "GPT-4o", provider: "OpenRouter", type: "Paid (Flagship)", isDefault: false },
+  { id: "google/gemini-2.5-pro-preview-03-25", name: "Gemini 2.5 Pro", provider: "OpenRouter", type: "Paid (Flagship)", isDefault: false },
+  { id: "x-ai/grok-3-beta", name: "Grok 3", provider: "OpenRouter", type: "Paid (Flagship)", isDefault: false },
 ];
 
-// The one model that is ALWAYS available, even for guests with no keys.
 export const GUEST_DEFAULT_MODEL = MODEL_REGISTRY.find((m) => m.isGuestModel);
+
+// ==========================================
+// FETCHED MODELS — persisted in Supabase
+// ==========================================
+export const getUserFetchedModels = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const { data, error } = await supabase
+    .from("user_fetched_models")
+    .select("*")
+    .eq("user_id", session.user.id);
+
+  if (error) return [];
+  return (data || []).map((m) => ({
+    id: m.model_id,
+    name: m.model_name,
+    provider: m.provider,
+    type: m.model_type || "Fetched",
+    isFetched: true,
+  }));
+};
+
+export const saveFetchedModel = async (model) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  await supabase.from("user_fetched_models").upsert({
+    user_id: session.user.id,
+    provider: model.provider,
+    model_id: model.id,
+    model_name: model.name,
+    model_type: model.type,
+  }, { onConflict: "user_id,model_id" });
+};
+
+export const removeFetchedModel = async (modelId) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  await supabase
+    .from("user_fetched_models")
+    .delete()
+    .eq("user_id", session.user.id)
+    .eq("model_id", modelId);
+};
+
+export const getAllModels = async () => {
+  const fetched = await getUserFetchedModels();
+  const fetchedIds = new Set(fetched.map((m) => m.id));
+  const registry = MODEL_REGISTRY.filter((m) => !fetchedIds.has(m.id));
+  return [...registry, ...fetched];
+};
 
 export const getEnabledModels = async () => {
   const { data: { session } } = await supabase.auth.getSession();
-
-  // Guest: only the free OpenRouter model
-  if (!session) {
-    return [GUEST_DEFAULT_MODEL.id];
-  }
+  if (!session) return [GUEST_DEFAULT_MODEL.id];
 
   const { data } = await supabase
     .from("user_enabled_models")
     .select("model_id");
 
   if (data && data.length > 0) {
-    // Return EXACTLY what the user enabled, no forced guest model!
     return data.map((d) => d.model_id);
   }
 
-  // Logged-in but no models saved yet — return defaults, BUT explicitly exclude the guest model
   return MODEL_REGISTRY.filter((m) => m.isDefault && !m.isGuestModel).map((m) => m.id);
 };
 

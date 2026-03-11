@@ -86,7 +86,7 @@ export const sendMessageToLLM = async (messages, modelId) => {
     const { text } = await generateText({
       model: aiModel,
       system: LUMINA_SYSTEM_PROMPT,
-      messages: messages, 
+      messages: truncatedMessages, 
     });
 
     return text;

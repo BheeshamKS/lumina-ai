@@ -100,18 +100,7 @@ export const Sidebar = ({
           return;
         }
 
-        try {
-          const { data, error } = await supabase
-            .from("users")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-          if (error) console.error("Supabase Error:", error.message);
-          setDisplayName(data?.["Display name"] || "User");
-        } catch (err) {
-          console.error("Failed to fetch user:", err);
-          setDisplayName("User");
-        }
+        setDisplayName(session.user.email?.split("@")[0] || "User");
       }
     };
     fetchSidebarData();

@@ -58,7 +58,7 @@
   
   /* The Input Box */
   --color-inputcard: #ffffff;    
-  --color-outputmassage: #141413;     
+  --color-outputmessage: #141413;     
   
   --color-primary: #2d2b29;       
   --color-secondary: #7e7a75;    
@@ -67,6 +67,7 @@
   --color-border-main: #e5e3de;   
   --color-border-hover: #cbc9c4;  
   --color-accent: #d97757;  
+  --color-accentmessage: #2563eb;
 
   --color-sidebar-border: #d9d9d4;
 
@@ -81,6 +82,7 @@
   --color-inlinebg: #f0efec;
   --color-inlineborder: #d2d1cd;
 
+  --color-toggleSwitch: #2c84db;
 }
 
 .dark {
@@ -95,7 +97,7 @@
   
   /* The Input Box */
   --color-inputcard: #30302e;
-  --color-outputmassage: #faf9f5;
+  --color-outputmessage: #faf9f5;
   
   --color-primary: #e6e4df;    
   --color-secondary: #908d85;   
@@ -104,6 +106,7 @@
   --color-border-main: #373733; 
   --color-border-hover: #555450;
   --color-accent: #d97757;   
+  --color-accentmessage: #60a5fa;
 
   --color-sidebar-border: #40403d;
 
@@ -118,6 +121,7 @@
   --color-inlinebg: #2e2e2b;
   --color-inlineborder: #494944;
 
+  --color-toggleSwitch: #2c84db;
 }
 
 body {

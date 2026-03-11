@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { ToggleSwitch } from "../components/toggleSwitch";
 import {
   User,
   Palette,
@@ -214,11 +215,11 @@ const BrowseModelsPopup = ({
                       {model.type}
                     </span>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={isEnabled}
-                    onChange={(e) => handleToggle(model, e.target.checked)}
-                    className="w-4 h-4 rounded border-border-main accent-accent shrink-0"
+                  <ToggleSwitch
+                    isOn={enabledModels.includes(model.id)}
+                    onToggle={() =>
+                      handleToggle(model, !enabledModels.includes(model.id))
+                    }
                   />
                 </label>
               );
@@ -485,13 +486,14 @@ const ProviderCard = ({
                         {model.type}
                       </span>
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={enabledModels.includes(model.id)}
-                      onChange={(e) =>
-                        onModelToggle(model.id, e.target.checked)
+                    <ToggleSwitch
+                      isOn={enabledModels.includes(model.id)}
+                      onToggle={() =>
+                        onModelToggle(
+                          model.id,
+                          !enabledModels.includes(model.id),
+                        )
                       }
-                      className="w-4 h-4 rounded border-border-main accent-accent"
                     />
                   </label>
                 );
@@ -519,32 +521,15 @@ const AccountSection = ({ session }) => {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!session?.user) return;
-      try {
-        // Try users table first
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-
-        if (!error && data) {
-          setProfile(data);
-          setNewName(data?.["Display name"] || "");
-        } else {
-          // Fallback to auth metadata
-          const metaName =
-            session.user.user_metadata?.["Display name"] ||
-            session.user.user_metadata?.full_name ||
-            session.user.user_metadata?.name ||
-            "";
-          setNewName(metaName);
-          setProfile({ "Display name": metaName });
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setIsLoading(false);
-      }
+      const metaName =
+        session.user.user_metadata?.["Display name"] ||
+        session.user.user_metadata?.full_name ||
+        session.user.user_metadata?.name ||
+        session.user.email?.split("@")[0] ||
+        "";
+      setNewName(metaName);
+      setProfile({ "Display name": metaName });
+      setIsLoading(false);
     };
     fetchProfile();
   }, [session]);
@@ -556,7 +541,7 @@ const AccountSection = ({ session }) => {
       await supabase
         .from("users")
         .update({ "Display name": newName.trim() })
-        .eq("id", session.user.id);
+        .eq("UID", session.user.id);
       setProfile((prev) => ({ ...prev, "Display name": newName.trim() }));
       setIsEditingName(false);
       setNameSaved(true);

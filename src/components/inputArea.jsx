@@ -9,7 +9,10 @@ import {
   Code2,
   Coffee,
   Check,
+  Send,
+  Globe,
 } from "lucide-react";
+import { ToggleSwitch } from "./toggleSwitch";
 
 const Chip = ({ icon, label }) => (
   <button className="flex items-center gap-2 px-4 py-2 bg-card hover:bg-card-hover border border-border-main hover:border-card-hover rounded-[10px] text-sm font-medium text-card-text hover:text-card-text-hover transition-all">
@@ -31,9 +34,14 @@ export const InputArea = ({
   availableModels = [],
   session,
   onOpenAuth,
+  isWebSearchEnabled,
+  setIsWebSearchEnabled,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+
   const menuRef = useRef(null);
+  const plusMenuRef = useRef(null);
 
   // Group models by provider for the dropdown
   const groupedModels = availableModels.reduce((acc, model) => {
@@ -69,7 +77,7 @@ export const InputArea = ({
       className={
         messagesLength === 0
           ? "w-full max-w-176.75 flex-1 flex flex-col justify-center px-4"
-          : "w-full max-w-197.5 absolute bottom-0 left-1/2 -translate-x-1/2 px-4 pb-6 pt-4 bg-gradient-to-t from-app via-app to-transparent"
+          : "w-full max-w-197.5 absolute bottom-0 left-1/2 -translate-x-1/2 px-4 pb-6 pt-4 bg-gradient-to-t from-app via-app to-transparent z-20"
       }
     >
       <div className="relative w-full">
@@ -99,11 +107,51 @@ export const InputArea = ({
             className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[16px] font-sans leading-normal text-outputmassage placeholder-placeholder max-h-100 ${messagesLength === 0 ? "min-h-15" : "min-h-6"}`}
           />
 
-          <div className="flex justify-between items-center mt-1 pt px-1">
-            <button className="p-2 hover:bg-card-hover rounded-full text-card-text hover:text-card-text-hover transition-colors">
-              <Plus size={20} />
-            </button>
+          <div className="flex justify-between items-center pb-1 px-1">
+            <div className="relative" ref={plusMenuRef}>
+              {/* 🚨 RESTORED YOUR EXACT BUTTON STYLING */}
+              <button
+                onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
+                className="p-2 hover:bg-card-hover rounded-lg text-card-text hover:text-card-text-hover transition-colors"
+              >
+                <Plus
+                  size={16}
+                  className={`transition-transform duration-200 ${isPlusMenuOpen ? "rotate-45" : ""}`}
+                />
+              </button>
 
+              {/* THE FLOATING MENU */}
+              {isPlusMenuOpen && (
+                <div className="absolute bottom-full left-0 mb-2 w-48 bg-card border border-border-main rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="p-1.5">
+                    <button
+                      onClick={() => {
+                        setIsWebSearchEnabled(!isWebSearchEnabled);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 text-[13px] text-card-text hover:bg-card-hover hover:text-card-text-hover rounded-lg transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Globe
+                          size={15}
+                          className={
+                            isWebSearchEnabled
+                              ? "text-toggleSwitch"
+                              : "text-placeholder"
+                          }
+                        />
+                        <span>Web Search</span>
+                      </div>
+                      {isWebSearchEnabled && (
+                        <Check
+                          size={14}
+                          className="text-toggleSwitch shrink-0"
+                        />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-3 text-card-text text-xs font-medium">
               {/* MODEL SELECTOR */}
               <div className="relative" ref={menuRef}>
@@ -150,7 +198,7 @@ export const InputArea = ({
                                 {activeModel?.id === model.id && (
                                   <Check
                                     size={14}
-                                    className="text-accent shrink-0 ml-2"
+                                    className="text-toggleSwitch shrink-0 ml-2"
                                   />
                                 )}
                               </button>

@@ -83,7 +83,7 @@ export const getChatMessages = async (chatId, page = 0, limit = 50) => {
 
   const { data, error } = await supabase
     .from('messages')
-    .select('role, content')
+    .select('role, content, created_at')
     .eq('conversation_id', chatId)
     // 🚨 THE TRICK: Fetch the newest messages first so pagination works backwards
     .order('created_at', { ascending: false }) 
@@ -109,3 +109,17 @@ export const getConversationTitle = async (chatId) => {
   return data?.title || "New Chat";
 };
 
+export const deleteMessagesAfterTimestamp = async (chatId, timestamp) => {
+  // If no timestamp is provided, we can't safely delete
+  if (!timestamp) return; 
+
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .eq('conversation_id', chatId)
+    .gte('created_at', timestamp); // "gte" means Greater Than or Equal To
+
+  if (error) {
+    console.error("Error deleting orphaned messages:", error);
+  }
+};

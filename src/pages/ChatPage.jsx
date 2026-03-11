@@ -33,6 +33,8 @@ export const ChatPage = ({ darkMode, session }) => {
   const [chatTitle, setChatTitle] = useState("");
   const [isLoading, setIsLoading] = useState(!!chatId);
 
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(true);
+
   const [guestPromptCount, setGuestPromptCount] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -248,7 +250,10 @@ export const ChatPage = ({ darkMode, session }) => {
     const userText = input.trim();
     setInput("");
 
-    const newMessages = [...messages, { role: "user", content: userText }];
+    const newMessages = [
+      ...messages,
+      { role: "user", content: userText, created_at: new Date().toISOString() },
+    ];
     setMessages(newMessages);
     setIsLoading(true);
 
@@ -278,8 +283,16 @@ export const ChatPage = ({ darkMode, session }) => {
       const responseText = await sendMessageToLLM(
         messagesForRouter,
         activeModel.id,
+        isWebSearchEnabled,
       );
-      setMessages((prev) => [...prev, { role: "ai", content: responseText }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content: responseText,
+          created_at: new Date().toISOString(),
+        },
+      ]);
 
       if (currentChatId) {
         saveMessage(currentChatId, "ai", responseText);
@@ -356,6 +369,7 @@ export const ChatPage = ({ darkMode, session }) => {
       const responseText = await sendMessageToLLM(
         messagesForRouter,
         activeModel.id,
+        isWebSearchEnabled,
       );
       setMessages((prev) => [...prev, { role: "ai", content: responseText }]);
 
@@ -366,6 +380,79 @@ export const ChatPage = ({ darkMode, session }) => {
       setMessages((prev) => [
         ...prev,
         { role: "ai", content: `⚠️ **Retry Failed:** ${error.message}` },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditSubmit = async (index, newText) => {
+    if (isLoading || !newText.trim()) return;
+
+    // 1. Capture the timestamp of the message we are about to overwrite!
+    const editedMessageTimestamp = messages[index].created_at;
+
+    // 2. Time Travel: Slice off everything AFTER the edited message for the UI
+    const previousMessages = messages.slice(0, index);
+
+    // 3. Append the newly edited user text (with a fresh timestamp)
+    const updatedMessages = [
+      ...previousMessages,
+      {
+        role: "user",
+        content: newText.trim(),
+        created_at: new Date().toISOString(),
+      },
+    ];
+
+    setMessages(updatedMessages);
+    setIsLoading(true);
+
+    try {
+      // 🚨 PHASE 2: DATABASE TIME TRAVEL
+      if (session && chatId && editedMessageTimestamp) {
+        // A. Delete the old timeline from Supabase
+        await import("../utils/chatHistory").then((m) =>
+          m.deleteMessagesAfterTimestamp(chatId, editedMessageTimestamp),
+        );
+
+        // B. Save the newly edited user message to the database
+        await saveMessage(chatId, "user", newText.trim());
+      }
+
+      // Format for the LLM Router
+      const MAX_CONTEXT = 20;
+      const recentMessages = updatedMessages.slice(-MAX_CONTEXT);
+      const messagesForRouter = recentMessages.map((msg) => ({
+        role: msg.role === "ai" ? "assistant" : "user",
+        content: msg.content,
+      }));
+
+      // Send the alternate timeline to the AI!
+      const responseText = await sendMessageToLLM(
+        messagesForRouter,
+        activeModel.id,
+        isWebSearchEnabled,
+      );
+
+      // Update UI with AI response
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content: responseText,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      // 🚨 Save the new AI response to the database
+      if (session && chatId) {
+        await saveMessage(chatId, "ai", responseText);
+      }
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", content: `⚠️ **Edit Failed:** ${error.message}` },
       ]);
     } finally {
       setIsLoading(false);
@@ -394,6 +481,7 @@ export const ChatPage = ({ darkMode, session }) => {
         loadOlderMessages={loadOlderMessages}
         hasMoreMessages={hasMoreMessages}
         isLoadingOlder={isLoadingOlder}
+        onEdit={handleEditSubmit}
       />
 
       <InputArea
@@ -409,6 +497,8 @@ export const ChatPage = ({ darkMode, session }) => {
         availableModels={availableModels}
         session={session}
         onOpenAuth={() => setShowAuthModal(true)}
+        isWebSearchEnabled={isWebSearchEnabled}
+        setIsWebSearchEnabled={setIsWebSearchEnabled}
       />
 
       <AuthModal

@@ -14,7 +14,7 @@ export const CodeBlock = ({ children, className, darkMode }) => {
 
   if (match || String(children).includes("\n")) {
     return (
-      <div className="my-4 rounded-[8px] overflow-hidden bg-codeblock-bg border border-codeblockborder font-sans group">
+      <div className="w-full my-4 rounded-[8px] overflow-hidden bg-codeblock-bg border border-codeblockborder font-sans group">
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
           <span className="text-[12px] text-placeholder font-medium lowercase">
             {match ? match[1] : "code"}

@@ -267,7 +267,10 @@ export const ChatPage = ({ darkMode, session }) => {
         saveMessage(currentChatId, "user", userText);
       }
 
-      const messagesForRouter = newMessages.map((msg) => ({
+      const MAX_CONTEXT = 20;
+      const recentMessages = newMessages.slice(-MAX_CONTEXT);
+
+      const messagesForRouter = recentMessages.map((msg) => ({
         role: msg.role === "ai" ? "assistant" : "user",
         content: msg.content,
       }));
@@ -341,7 +344,10 @@ export const ChatPage = ({ darkMode, session }) => {
     setIsLoading(true);
 
     try {
-      const messagesForRouter = previousMessages.map((msg) => ({
+      const MAX_CONTEXT = 10;
+      const recentPreviousMessages = previousMessages.slice(-(MAX_CONTEXT - 1));
+
+      const messagesForRouter = recentPreviousMessages.map((msg) => ({
         role: msg.role === "ai" ? "assistant" : "user",
         content: msg.content,
       }));

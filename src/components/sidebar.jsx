@@ -12,14 +12,18 @@ import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../utils/supabase";
 import { getConversations, archiveConversation } from "../utils/chatHistory";
 
+// Every item follows the same pattern:
+// [fixed w-12 icon slot] [animated label]
 const SidebarItem = ({ icon, label, isOpen, to }) => (
   <Link
     to={to || "#"}
-    className="flex items-center py-2.5 hover:bg-card-hover rounded-xl cursor-pointer text-card-text hover:text-card-text-hover transition-colors w-full"
+    className="flex items-center w-full py-2.5 rounded-xl text-card-text hover:bg-card-hover hover:text-card-text-hover transition-colors"
   >
-    <div className="w-12 flex items-center justify-center shrink-0">{icon}</div>
+    <div className="w-12 shrink-0 flex items-center justify-center">{icon}</div>
     <span
-      className={`text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? "w-48 opacity-100" : "w-0 opacity-0"}`}
+      className={`text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        isOpen ? "opacity-100 w-40" : "opacity-0 w-0"
+      }`}
     >
       {label}
     </span>
@@ -32,7 +36,6 @@ const RecentItem = ({ id, title, currentChatId, onArchive }) => {
     e.stopPropagation();
     onArchive(id);
   };
-
   return (
     <Link
       to={`/chat/${id}`}
@@ -42,12 +45,10 @@ const RecentItem = ({ id, title, currentChatId, onArchive }) => {
           : "text-card-text hover:bg-card-hover"
       }`}
     >
-      <div className="flex items-center gap-2 truncate flex-1">
-        <span className="truncate pr-2">{title}</span>
-      </div>
+      <span className="truncate pr-2 flex-1">{title}</span>
       <button
         onClick={handleDelete}
-        className="opacity-0 group-hover:opacity-100 p-1.5 hover:text-[#FE8181] hover:bg-[#FE8181]/10 rounded-md transition-all"
+        className="opacity-0 group-hover:opacity-100 p-1.5 hover:text-[#FE8181] hover:bg-[#FE8181]/10 rounded-md transition-all shrink-0"
       >
         <Trash2 size={14} />
       </button>
@@ -67,19 +68,16 @@ export const Sidebar = ({
   const [recentChats, setRecentChats] = useState([]);
   const [displayName, setDisplayName] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const CHATS_PER_PAGE = 15;
-
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
         setIsDropdownOpen(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -87,40 +85,29 @@ export const Sidebar = ({
 
   useEffect(() => {
     const fetchSidebarData = async () => {
-      setPage(0); // Reset page on fresh load
+      setPage(0);
       const chats = await getConversations(0, CHATS_PER_PAGE);
       setRecentChats(chats);
       setHasMore(chats.length === CHATS_PER_PAGE);
 
       if (session?.user) {
-        // 1. FASTEST WAY: Check if Supabase already sent the name in the auth session metadata
         const metaName =
           session.user.user_metadata?.["Display name"] ||
           session.user.user_metadata?.full_name ||
           session.user.user_metadata?.name;
-
         if (metaName) {
           setDisplayName(metaName);
-          return; // We found the name! Skip the database call entirely.
+          return;
         }
 
-        // 2. FALLBACK WAY: Query the public database table
         try {
           const { data, error } = await supabase
             .from("users")
             .select("*")
             .eq("id", session.user.id)
             .single();
-
-          if (error) {
-            console.error("Supabase Error fetching name:", error.message);
-          }
-
-          if (data && data["Display name"]) {
-            setDisplayName(data["Display name"]);
-          } else {
-            setDisplayName("User");
-          }
+          if (error) console.error("Supabase Error:", error.message);
+          setDisplayName(data?.["Display name"] || "User");
         } catch (err) {
           console.error("Failed to fetch user:", err);
           setDisplayName("User");
@@ -132,29 +119,22 @@ export const Sidebar = ({
 
   const loadMoreChats = async () => {
     if (isLoadingMore || !hasMore) return;
-
     setIsLoadingMore(true);
     const nextPage = page + 1;
     const newChats = await getConversations(nextPage, CHATS_PER_PAGE);
-
     if (newChats.length > 0) {
       setRecentChats((prev) => [...prev, ...newChats]);
       setPage(nextPage);
     }
-
-    if (newChats.length < CHATS_PER_PAGE) {
-      setHasMore(false); // We reached the absolute end of their history
-    }
-
+    if (newChats.length < CHATS_PER_PAGE) setHasMore(false);
     setIsLoadingMore(false);
   };
 
   const handleArchive = async (id) => {
-    setRecentChats((prev) => prev.filter((chat) => chat.id !== id));
+    setRecentChats((prev) => prev.filter((c) => c.id !== id));
     try {
       await archiveConversation(id);
-    } catch (error) {
-      console.error("Failed to archive:", error);
+    } catch {
       const chats = await getConversations();
       setRecentChats(chats);
     }
@@ -173,15 +153,18 @@ export const Sidebar = ({
   };
 
   return (
+    // Outer wrapper: owns the width animation + clips the w-72 aside
     <div
-      className={`relative h-full z-30 shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${sidebarOpen ? "w-72" : "w-12"}`}
       ref={dropdownRef}
+      className="relative h-full z-30 shrink-0 overflow-hidden border-r border-sidebar-border"
+      style={{
+        width: sidebarOpen ? "288px" : "48px",
+        transition: "width 300ms cubic-bezier(0.4,0,0.2,1)",
+      }}
     >
-      {/* THE DROPDOWN MENU - Now completely immune to overflow-hidden! */}
+      {/* Dropdown outside aside so overflow-hidden doesn't clip it */}
       {isDropdownOpen && session && (
-        <div
-          className={`absolute bottom-16 left-0 mb-2 bg-card border border-border-main rounded-xl shadow-lg overflow-hidden z-50 transition-all ${sidebarOpen ? "w-[calc(100%-16px)] mx-2" : "w-48 ml-2"}`}
-        >
+        <div className="absolute bottom-16 left-2 right-2 mb-2 bg-card border border-border-main rounded-xl shadow-lg overflow-hidden z-50">
           <Link
             to="/settings"
             onClick={() => setIsDropdownOpen(false)}
@@ -189,7 +172,6 @@ export const Sidebar = ({
           >
             <Settings size={16} className="mr-3" /> Settings
           </Link>
-
           <button
             onClick={handleSignOut}
             className="w-full flex items-center px-4 py-3 text-sm text-[#FE8181] hover:bg-[#FE8181]/10 transition-colors"
@@ -199,23 +181,18 @@ export const Sidebar = ({
         </div>
       )}
 
-      {/* THE ACTUAL SIDEBAR */}
-      <aside
-        className={`absolute inset-y-0 left-0 bg-card border-r border-sidebar-border flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden ${sidebarOpen ? "w-72" : "w-12"}`}
-      >
+      {/* Aside is always w-72, never animates — wrapper clips it */}
+      <aside className="w-72 h-full bg-card flex flex-col">
         <div className="pt-3 flex flex-col h-full">
-          <div className="flex items-center mb-6 justify-between">
-            <div
-              className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${sidebarOpen ? "w-32 opacity-100 ml-4" : "w-0 opacity-0 ml-0"}`}
-            >
-              <span className="font-medium font-serif text-[22px] tracking-tight text-card-text-hover">
-                Lumina
-              </span>
-            </div>
-            <div className="w-12 flex items-center justify-center shrink-0">
+          {/* HEADER
+              CRITICAL: toggle button is FIRST in the DOM (leftmost = always visible).
+              Wordmark comes after and fades in to the right. */}
+          <div className="flex items-center mb-6">
+            {/* Toggle — always at x=0, never moves */}
+            <div className="w-12 shrink-0 flex items-center justify-center">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-1.5 hover:bg-card-hover rounded-md transition-colors shrink-0"
+                className="p-1.5 hover:bg-card-hover rounded-md transition-colors"
               >
                 <LayoutGrid
                   size={18}
@@ -223,81 +200,89 @@ export const Sidebar = ({
                 />
               </button>
             </div>
+            {/* Wordmark fades in beside the toggle */}
+            <div
+              className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                sidebarOpen ? "opacity-100 w-48" : "opacity-0 w-0"
+              }`}
+            >
+              <span className="font-medium font-serif text-[22px] tracking-tight text-card-text-hover">
+                Lumina
+              </span>
+            </div>
           </div>
 
-          <div className="space-y-1">
+          {/* NAV ITEMS */}
+          <div className="space-y-0.5">
             <SidebarItem
               icon={<Plus size={20} />}
               label="New chat"
               isOpen={sidebarOpen}
               to="/new"
-              isActive={location.pathname === "/new"}
             />
             <SidebarItem
               icon={<Search size={20} />}
               label="Search"
               isOpen={sidebarOpen}
               to="#"
-              isActive={false}
             />
           </div>
 
+          {/* RECENTS */}
           <div
-            className={`mt-8 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-1 transition-all duration-300 ease-in-out ${sidebarOpen ? "opacity-100" : "opacity-0 invisible pointer-events-none"}`}
+            className={`mt-8 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-2 transition-opacity duration-300 ${
+              sidebarOpen
+                ? "opacity-100"
+                : "opacity-0 invisible pointer-events-none"
+            }`}
             onScroll={(e) => {
               const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-              if (scrollHeight - scrollTop <= clientHeight + 20) {
+              if (scrollHeight - scrollTop <= clientHeight + 20)
                 loadMoreChats();
-              }
             }}
           >
-            <div className="w-[280px]">
-              {" "}
-              <p className="text-[11px] font-extralight text-placeholder tracking-wider px-3 mb-2 uppercase">
-                Recents
-              </p>
-              <div className="space-y-1">
-                {recentChats.map((chat) => (
-                  <RecentItem
-                    key={chat.id}
-                    id={chat.id}
-                    title={chat.title}
-                    currentChatId={currentChatId}
-                    onArchive={handleArchive}
-                  />
-                ))}
-                {recentChats.length === 0 && (
-                  <p className="px-3 py-2 text-[12px] text-placeholder italic">
-                    No recent chats
-                  </p>
-                )}
-
-                {isLoadingMore && (
-                  <div className="flex justify-center py-3">
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-sidebar-ring"></div>
-                  </div>
-                )}
-              </div>
+            <p className="text-[11px] font-extralight text-placeholder tracking-wider px-1 mb-2 uppercase">
+              Recents
+            </p>
+            <div className="space-y-0.5">
+              {recentChats.map((chat) => (
+                <RecentItem
+                  key={chat.id}
+                  id={chat.id}
+                  title={chat.title}
+                  currentChatId={currentChatId}
+                  onArchive={handleArchive}
+                />
+              ))}
+              {recentChats.length === 0 && (
+                <p className="px-3 py-2 text-[12px] text-placeholder italic">
+                  No recent chats
+                </p>
+              )}
+              {isLoadingMore && (
+                <div className="flex justify-center py-3">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-sidebar-ring" />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* BOTTOM PROFILE SECTION */}
-          <div className="mt-auto relative w-full">
+          {/* BOTTOM PROFILE — toggle first pattern, avatar always at x=0 */}
+          <div className="mt-auto w-full">
             {session ? (
-              // LOGGED IN STATE
               <div
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`w-full flex items-center cursor-pointer transition-colors group py-4 hover:bg-card-hover ${
-                  sidebarOpen
-                    ? "border-t border-sidebar-border px-4 justify-start"
-                    : "border-t border-transparent px-0 justify-center"
-                }`}
+                className={`w-full flex items-center cursor-pointer group py-4 hover:bg-card-hover transition-colors ${sidebarOpen ? "border-t border-sidebar-border" : "border-transparent"}`}
               >
-                <div className="w-8 h-8 bg-[#2c2a27] dark:bg-[#c2c0b6] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[14px] font-normal shrink-0 leading-none pt-[1px]">
-                  {getInitials(displayName)}
+                <div className="w-12 shrink-0 flex items-center justify-center">
+                  <div className="w-8 h-8 bg-[#2c2a27] dark:bg-[#c2c0b6] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[14px] font-normal leading-none pt-[1px]">
+                    {getInitials(displayName)}
+                  </div>
                 </div>
                 <div
-                  className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${sidebarOpen ? "w-40 ml-3 opacity-100" : "w-0 ml-0 opacity-0"}`}
+                  className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                    sidebarOpen ? "opacity-100 w-40" : "opacity-0 w-0"
+                  }`}
                 >
                   <span className="text-sm font-semibold text-card-text truncate group-hover:text-card-text-hover transition-colors">
                     {displayName}
@@ -308,21 +293,20 @@ export const Sidebar = ({
                 </div>
               </div>
             ) : (
-              // LOGGED OUT STATE
               <div
                 onClick={onOpenAuth}
-                className={`w-full flex items-center cursor-pointer transition-colors group py-4 hover:bg-card-hover ${
-                  sidebarOpen
-                    ? "border-t border-sidebar-border px-4 justify-start"
-                    : "border-t border-transparent px-0 justify-center"
-                }`}
+                className={`w-full flex items-center cursor-pointer group py-4 hover:bg-card-hover transition-colors ${sidebarOpen ? "border-t border-sidebar-border" : "border-transparent"}`}
               >
-                <LogIn
-                  size={20}
-                  className="shrink-0 text-accent group-hover:text-accent/80 transition-colors"
-                />
+                <div className="w-12 shrink-0 flex items-center justify-center">
+                  <LogIn
+                    size={20}
+                    className="text-accent group-hover:text-accent/80 transition-colors"
+                  />
+                </div>
                 <span
-                  className={`text-sm font-medium text-accent overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${sidebarOpen ? "w-32 ml-3 opacity-100" : "w-0 ml-0 opacity-0"}`}
+                  className={`text-sm font-medium text-accent overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                    sidebarOpen ? "opacity-100 w-36" : "opacity-0 w-0"
+                  }`}
                 >
                   Sign in or Sign up
                 </span>

@@ -32,7 +32,8 @@ const CONTEXT_LIMITS = {
 };
 
 // Providers known to NOT support tool calls reliably
-const NO_TOOL_SUPPORT = ["Perplexity", "TogetherAI"];
+const NO_TOOL_SUPPORT = ["Groq", "Perplexity", "TogetherAI"];
+
 
 // ─── Tavily search function ───────────────────────────────────────────────────
 const tavilySearch = async (query) => {
@@ -108,6 +109,24 @@ export const sendMessageToLLM = async (
   const contextLimit = CONTEXT_LIMITS[model.provider] ?? 20;
   const truncatedMessages = messages.slice(-contextLimit);
 
+  const webSearchTool = tool({
+    description:
+      "Search the web for current information. Use this when you don't know something, when asked to search online, or when the question involves recent events, news, prices, or anything that may have changed.",
+    parameters: z.object({
+      query: z.string().min(1).describe("The specific search query to look up online"),
+    }),
+    execute: async (args) => {
+      // Guard against null/missing args from buggy models
+      const query = args?.query || "";
+      if (!query) return "Search failed: no query provided.";
+      try {
+        return await tavilySearch(query);
+      } catch (err) {
+        return `Search failed: ${err.message}`;
+      }
+    },
+  });
+
   // ── Case 1: Web search OFF — normal call ──────────────────────────────────
   if (!isWebSearchEnabled) {
     try {
@@ -126,27 +145,32 @@ export const sendMessageToLLM = async (
   // ── Case 2: Web search ON but provider doesn't support tools ─────────────
   if (NO_TOOL_SUPPORT.includes(model.provider)) {
     try {
-      const lastUserMessage =
-        truncatedMessages.findLast((m) => m.role === "user")?.content || "";
-      const searchResults = await tavilySearch(lastUserMessage);
-      const result = await generateText({
+      const lastUserMessage = truncatedMessages.findLast((m) => m.role === "user")?.content || "";
+      
+      // Ask the model first: does this need a web search?
+      const { text: needsSearch } = await generateText({
         model: aiModel,
-        system:
-          LUMINA_SYSTEM_PROMPT +
-          "\n\nYou have access to a web search tool. Use it when you're unsure about something, when asked to search online, or when the question involves recent or real-time information. Don't search for things you already know well.",
-        messages: truncatedMessages,
-        tools: { webSearch: webSearchTool },
-        maxSteps: 5,
+        system: "You are a classifier. Reply with only 'YES' if the user's question requires current/real-time information from the web (news, prices, weather, recent events). Reply with only 'NO' if you can answer from general knowledge.",
+        messages: [{ role: "user", content: lastUserMessage }],
       });
-
-      // When a tool is called, result.text is empty — the actual final answer
-      // lives in the last step that contains text
-      const text =
-        result.text ||
-        result.steps?.findLast((s) => s.text?.trim())?.text ||
-        "";
-
-      return text;
+  
+      if (needsSearch.trim().toUpperCase().includes("YES")) {
+        const searchResults = await tavilySearch(lastUserMessage);
+        const { text } = await generateText({
+          model: aiModel,
+          system: LUMINA_SYSTEM_PROMPT + `\n\nCurrent web search context:\n\n${searchResults}\n\nUse this where relevant.`,
+          messages: truncatedMessages,
+        });
+        return text;
+      } else {
+        // Doesn't need search — answer normally
+        const { text } = await generateText({
+          model: aiModel,
+          system: LUMINA_SYSTEM_PROMPT,
+          messages: truncatedMessages,
+        });
+        return text;
+      }
     } catch (err) {
       console.error("Pre-search fallback error:", err);
       throw new Error(err.message || "Search failed.");
@@ -154,21 +178,6 @@ export const sendMessageToLLM = async (
   }
 
   // ── Case 3: Web search ON + provider supports tools ───────────────────────
-  const webSearchTool = tool({
-    description:
-      "Search the web for current information. Use this when you don't know something, when the user asks to search online, or when the question involves recent events, news, prices, or anything that may have changed.",
-    parameters: z.object({
-      query: z.string().describe("The search query to look up"),
-    }),
-    execute: async ({ query }) => {
-      try {
-        return await tavilySearch(query);
-      } catch (err) {
-        return `Search failed: ${err.message}`;
-      }
-    },
-  });
-
   try {
     const result = await generateText({
       model: aiModel,
@@ -178,15 +187,18 @@ export const sendMessageToLLM = async (
       messages: truncatedMessages,
       tools: { webSearch: webSearchTool },
       maxSteps: 5,
+      toolChoice: "auto",
     });
-    
+
+    console.log("result.text:", result.text);
+    console.log("result.steps:", JSON.stringify(result.steps, null, 2));
+    console.log("finishReason:", result.finishReason);
+
     // When a tool is called, result.text is empty — the actual final answer
     // lives in the last step that contains text
     const text =
-      result.text ||
-      result.steps?.findLast((s) => s.text?.trim())?.text ||
-      "";
-    
+      result.text || result.steps?.findLast((s) => s.text?.trim())?.text || "";
+
     return text;
   } catch (error) {
     // Tool call not supported — catch and return friendly message
@@ -199,29 +211,16 @@ export const sendMessageToLLM = async (
     ) {
       // Fallback to pre-search injection
       try {
-        const lastUserMessage =
-          truncatedMessages.findLast((m) => m.role === "user")?.content || "";
+        const lastUserMessage = truncatedMessages.findLast((m) => m.role === "user")?.content || "";
         const searchResults = await tavilySearch(lastUserMessage);
-        const result = await generateText({
+        const { text } = await generateText({
           model: aiModel,
-          system:
-            LUMINA_SYSTEM_PROMPT +
-            "\n\nYou have access to a web search tool. Use it when you're unsure about something, when asked to search online, or when the question involves recent or real-time information. Don't search for things you already know well.",
+          system: LUMINA_SYSTEM_PROMPT + `\n\nCurrent web search context:\n\n${searchResults}\n\nUse this where relevant.`,
           messages: truncatedMessages,
-          tools: { webSearch: webSearchTool },
-          maxSteps: 5,
         });
-        
-        // When a tool is called, result.text is empty — the actual final answer
-        // lives in the last step that contains text
-        const text =
-          result.text ||
-          result.steps?.findLast((s) => s.text?.trim())?.text ||
-          "";
-        
         return text;
       } catch {
-        return `⚠️ **${model.name}** doesn't support web search tool calls and the fallback also failed. Try a different model.`;
+        return `⚠️ **${model.name}** doesn't support web search and the fallback also failed. Try a different model.`;
       }
     }
 

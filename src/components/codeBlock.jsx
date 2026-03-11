@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Copy, Check } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getLuminaTheme } from "../utils/syntaxTheme";
 
@@ -23,7 +24,11 @@ export const CodeBlock = ({ children, className, darkMode }) => {
             onClick={handleCopy}
             className="text-placeholder hover:text-[#e6e4df] transition-colors opacity-0 group-hover:opacity-100 text-[12px]"
           >
-            {copied ? "copied!" : "copy"}
+            {copied ? (
+              <Check size={14} className="text-primary" />
+            ) : (
+              <Copy size={14} />
+            )}
           </button>
         </div>
         <div className="px-4 pb-4 overflow-x-auto font-mono">

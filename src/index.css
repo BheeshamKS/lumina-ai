@@ -17,6 +17,22 @@
 }
 
 @font-face {
+  font-family: 'Styrene B';
+  src: url('./fonts/StyreneB-Black-Trial.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Tiempos Text';
+  src: url('./fonts/TestTiemposText-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Tiempos Text';
   src: url('./fonts/TestTiemposText-Regular.otf') format('opentype');
   font-weight: 400;
@@ -166,4 +182,22 @@ body {
 
 *::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-placeholder); /* Slightly lighter/darker when hovered */
+}
+
+@media (max-width: 767px) {
+  * {
+    -webkit-font-smoothing: auto;
+  }
+
+  .font-serif {
+    font-weight: 700;
+  }
+
+  .font-sans {
+    font-weight: 700;
+  }
+
+  .font-mono {
+    font-weight: 500;
+  }
 }

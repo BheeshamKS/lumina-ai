@@ -6,6 +6,8 @@ import {
   X,
   Settings,
   Trash2,
+  MoreHorizontal,
+  Pencil,
   LogIn,
   LogOut,
   PanelLeft,
@@ -17,6 +19,7 @@ import {
   getConversations,
   archiveConversation,
   searchConversations,
+  updateConversationTitle,
 } from "../utils/chatHistory";
 
 const SidebarItem = ({ icon, label, isOpen, to, onClick }) => (
@@ -43,29 +46,134 @@ const SidebarItem = ({ icon, label, isOpen, to, onClick }) => (
 );
 
 const RecentItem = ({ id, title, currentChatId, onArchive, onClick }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(title);
+  const menuRef = useRef(null);
+  const longPressTimer = useRef(null);
+
+  const handleTouchStart = () => {
+    longPressTimer.current = setTimeout(() => setMenuOpen(true), 500);
+  };
+
+  const handleTouchEnd = () => {
+    clearTimeout(longPressTimer.current);
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const close = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("touchstart", close, {
+      capture: true,
+      passive: false,
+    });
+    document.addEventListener("mousedown", close, { capture: true });
+
+    return () => {
+      document.removeEventListener("touchstart", close, { capture: true });
+      document.removeEventListener("mousedown", close, { capture: true });
+    };
+  }, [menuOpen]);
+
   const handleDelete = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    setMenuOpen(false);
     onArchive(id);
   };
-  return (
-    <Link
-      to={`/chat/${id}`}
-      onClick={onClick}
-      className={`group flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
-        currentChatId === id
-          ? "bg-card-hover text-card-text-hover font-medium"
-          : "text-card-text hover:bg-card-hover"
-      }`}
-    >
-      <span className="truncate pr-2 flex-1">{title}</span>
-      <button
-        onClick={handleDelete}
-        className="opacity-0 group-hover:opacity-100 p-1.5 hover:text-[#FE8181] hover:bg-[#FE8181]/10 rounded-md transition-all shrink-0"
+
+  const handleRenameSubmit = async (e) => {
+    e?.preventDefault();
+    if (!renameValue.trim()) return;
+    setIsRenaming(false);
+    await updateConversationTitle(id, renameValue.trim());
+  };
+
+  if (isRenaming) {
+    return (
+      <form
+        onSubmit={handleRenameSubmit}
+        className="flex items-center gap-1 px-3 py-1.5"
       >
-        <Trash2 size={14} />
-      </button>
-    </Link>
+        <input
+          autoFocus
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onBlur={handleRenameSubmit}
+          onKeyDown={(e) => e.key === "Escape" && setIsRenaming(false)}
+          className="flex-1 text-sm bg-card-hover text-card-text rounded-md px-2 py-1 outline-none border border-sidebar-border"
+        />
+      </form>
+    );
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <Link
+        to={`/chat/${id}`}
+        onClick={(e) => {
+          if (menuOpen) {
+            e.preventDefault();
+            setMenuOpen(false);
+            return;
+          }
+          onClick?.();
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchEnd}
+        onContextMenu={(e) => e.preventDefault()}
+        className={`select-none group flex items-center justify-between px-2 py-1 text-sm rounded-lg transition-all duration-200 ${
+          currentChatId === id
+            ? "bg-card-hover text-card-text-hover font-medium"
+            : "text-card-text hover:bg-card-hover"
+        }`}
+      >
+        <span className="truncate pr-0 flex-1">{renameValue}</span>
+        {/* Hide button on touch devices, visible on desktop hover */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setMenuOpen((v) => !v);
+          }}
+          className="hidden md:block opacity-0 group-hover:opacity-100 p-1.5 hover:bg-card-hover rounded-md transition-all shrink-0"
+        >
+          <MoreHorizontal size={14} />
+        </button>
+      </Link>
+
+      {menuOpen && (
+        <>
+          <div className="absolute right-0 top-8 w-40 bg-bgDropDown border border-bgDropDownBorder rounded-xl shadow-lg overflow-hidden z-60">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setMenuOpen(false);
+                setIsRenaming(true);
+              }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-card-text hover:bg-card-hover transition-colors"
+            >
+              <Pencil size={14} /> Rename
+            </button>
+            <button
+              onClick={handleDelete}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#FE8181] hover:bg-[#FE8181]/10 transition-colors"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 
@@ -191,6 +299,8 @@ export const Sidebar = ({
   const navigate = useNavigate();
   const currentChatId = location.pathname.split("/chat/")[1];
 
+  const CHATS_PER_PAGE = 15;
+
   const [recentChats, setRecentChats] = useState([]);
   const [displayName, setDisplayName] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -199,8 +309,9 @@ export const Sidebar = ({
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const CHATS_PER_PAGE = 15;
+  const [dragX, setDragX] = useState(0);
   const dropdownRef = useRef(null);
+  const touchStartX = useRef(null);
 
   // Detect mobile
   useEffect(() => {
@@ -293,8 +404,9 @@ export const Sidebar = ({
     bottom: 0,
     width: "280px",
     zIndex: 50,
-    transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
-    transition: "transform 300ms cubic-bezier(0.4,0,0.2,1)",
+    transform: sidebarOpen ? `translateX(-${dragX}px)` : "translateX(-100%)",
+    transition:
+      dragX > 0 ? "none" : "transform 300ms cubic-bezier(0.4,0,0.2,1)",
   };
 
   const desktopWrapperStyle = {
@@ -305,6 +417,22 @@ export const Sidebar = ({
     height: "100%",
     overflow: "visible",
     zIndex: 30,
+  };
+
+  const handleSidebarTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleSidebarTouchMove = (e) => {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.touches[0].clientX;
+    if (diff > 0) setDragX(diff); // only allow left swipe
+  };
+
+  const handleSidebarTouchEnd = () => {
+    if (dragX > 50) setSidebarOpen(false);
+    setDragX(0);
+    touchStartX.current = null;
   };
 
   return (
@@ -379,6 +507,9 @@ export const Sidebar = ({
         <aside
           style={mobileDrawerStyle}
           className="bg-card border-r border-sidebar-border flex flex-col"
+          onTouchStart={handleSidebarTouchStart}
+          onTouchMove={handleSidebarTouchMove}
+          onTouchEnd={handleSidebarTouchEnd}
         >
           <div className="pt-3 flex flex-col h-full">
             {/* Mobile header */}
@@ -456,9 +587,6 @@ export const Sidebar = ({
                     <div className="flex flex-col overflow-hidden">
                       <span className="text-sm font-semibold text-card-text truncate">
                         {displayName}
-                      </span>
-                      <span className="text-[10px] text-placeholder">
-                        Pro Plan
                       </span>
                     </div>
                   </div>
@@ -602,7 +730,7 @@ const DesktopSidebarContent = ({
       {session ? (
         <div
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className={`w-full flex items-center cursor-pointer group py-4 transition-colors hover:bg-card-hover ${
+          className={`w-full flex items-center cursor-pointer group py-4 px-0 transition-colors hover:bg-card-hover ${
             sidebarOpen
               ? "border-t border-sidebar-border"
               : "border-t border-transparent"
@@ -613,25 +741,10 @@ const DesktopSidebarContent = ({
               {getInitials(displayName)}
             </div>
           </div>
-          <div
-            style={{
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-              opacity: sidebarOpen ? 1 : 0,
-              width: sidebarOpen ? "10rem" : "0px",
-              transition:
-                "opacity 300ms cubic-bezier(0.4,0,0.2,1), width 300ms cubic-bezier(0.4,0,0.2,1)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <span className="text-sm font-semibold text-card-text truncate group-hover:text-card-text-hover transition-colors">
-              {displayName}
-            </span>
-            <span className="text-[10px] text-placeholder group-hover:text-card-text-hover transition-colors">
-              Pro Plan
-            </span>
-          </div>
+
+          <span className="text-sm font-semibold text-card-text truncate group-hover:text-card-text-hover transition-colors">
+            {displayName}
+          </span>
         </div>
       ) : (
         <div

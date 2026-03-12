@@ -62,6 +62,10 @@ export const InputArea = ({
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setIsMenuOpen(false);
       }
+
+      if (plusMenuRef.current && !plusMenuRef.current.contains(event.target)) {
+        setIsPlusMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -109,7 +113,6 @@ export const InputArea = ({
 
           <div className="flex justify-between items-center pb-1 px-1">
             <div className="relative" ref={plusMenuRef}>
-              {/* 🚨 RESTORED YOUR EXACT BUTTON STYLING */}
               <button
                 onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
                 className="p-2 hover:bg-card-hover rounded-lg text-card-text hover:text-card-text-hover transition-colors"
@@ -122,7 +125,7 @@ export const InputArea = ({
 
               {/* THE FLOATING MENU */}
               {isPlusMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 bg-card border border-border-main rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="absolute bottom-full left-0 mb-2 w-48 bg-bgDropDown border border-bgDropDownBorder rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                   <div className="p-1.5">
                     <button
                       onClick={() => {
@@ -170,7 +173,7 @@ export const InputArea = ({
 
                 {/* FLOATING DROPDOWN */}
                 {isMenuOpen && (
-                  <div className="absolute bottom-full right-0 mb-2 w-64 bg-card border border-border-main rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="absolute bottom-full right-0 mb-2 w-64 bg-bgDropDown border border-bgDropDownBorder rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                     {/* Model list */}
                     <div className="max-h-80 overflow-y-auto p-1.5 space-y-2 no-scrollbar">
                       {availableProviders.length > 0 ? (
@@ -219,7 +222,7 @@ export const InputArea = ({
 
                     {/* ── FEATURE 4: Guest upsell footer ── */}
                     {isGuest && (
-                      <div className="border-t border-border-main px-3 py-2.5 bg-card">
+                      <div className="border-t border-bgDropDownBorder px-3 py-2.5 bg-bgDropDown">
                         <p className="text-[11px] text-placeholder leading-relaxed">
                           Sign up and add your own API keys in{" "}
                           <span

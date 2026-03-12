@@ -1,230 +1,46 @@
-import { MODEL_REGISTRY } from "./models";
-import { getActiveApiKey } from "./apiKeys";
-import { LUMINA_SYSTEM_PROMPT } from "./prompts";
+/**
+ * src/utils/llmRouter.js — Client-side proxy caller
+ *
+ * No API keys here. No provider SDKs here.
+ * All LLM logic lives in /api/chat.js (server-side).
+ *
+ * This file just:
+ *   1. Gets the user's current Supabase JWT
+ *   2. POSTs to /api/chat with the conversation + JWT
+ *   3. Returns the response text
+ */
 
-import { generateText, tool } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createGroq } from "@ai-sdk/groq";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { z } from "zod";
+import { supabase } from "./supabase";
 
-const OPENAI_COMPATIBLE_ENDPOINTS = {
-  OpenAI: "https://api.openai.com/v1",
-  DeepSeek: "https://api.deepseek.com/v1",
-  Mistral: "https://api.mistral.ai/v1",
-  xAI: "https://api.x.ai/v1",
-  Perplexity: "https://api.perplexity.ai",
-  TogetherAI: "https://api.together.xyz/v1",
-};
-
-const CONTEXT_LIMITS = {
-  Groq: 6,
-  Google: 50,
-  OpenRouter: 20,
-  OpenAI: 40,
-  DeepSeek: 40,
-  Mistral: 40,
-  xAI: 40,
-  Perplexity: 20,
-  TogetherAI: 20,
-};
-
-// Providers known to NOT support tool calls reliably
-const NO_TOOL_SUPPORT = ["Groq", "Perplexity", "TogetherAI"];
-
-
-// ─── Tavily search function ───────────────────────────────────────────────────
-const tavilySearch = async (query) => {
-  const apiKey = import.meta.env.VITE_TAVILY_API_KEY;
-  if (!apiKey) throw new Error("Tavily API key not configured.");
-
-  const response = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: apiKey,
-      query,
-      search_depth: "basic",
-      max_results: 5,
-      include_answer: true,
-    }),
-  });
-
-  if (!response.ok) throw new Error(`Tavily error: ${response.status}`);
-  const data = await response.json();
-
-  // Format results into a clean string for the model
-  const results = data.results
-    .map((r, i) => `[${i + 1}] ${r.title}\n${r.url}\n${r.content}`)
-    .join("\n\n");
-
-  return data.answer
-    ? `Summary: ${data.answer}\n\nSources:\n${results}`
-    : results;
-};
-
-// ─── Build AI model instance ──────────────────────────────────────────────────
-const buildAiModel = (model, apiKey) => {
-  if (model.provider === "Google") {
-    return createGoogleGenerativeAI({ apiKey })(model.id);
-  }
-  if (model.provider === "Groq") {
-    return createGroq({ apiKey })(model.id);
-  }
-  if (model.provider === "Anthropic") {
-    return createAnthropic({ apiKey })(model.id);
-  }
-  if (model.provider === "OpenRouter") {
-    return createOpenRouter({ apiKey }).chat(model.id);
-  }
-  if (OPENAI_COMPATIBLE_ENDPOINTS[model.provider]) {
-    return createOpenAI({
-      baseURL: OPENAI_COMPATIBLE_ENDPOINTS[model.provider],
-      apiKey,
-      compatibility: "compatible",
-    })(model.id);
-  }
-  throw new Error(`API routing for ${model.provider} is not configured yet.`);
-};
-
-// ─── Main export ──────────────────────────────────────────────────────────────
 export const sendMessageToLLM = async (
   messages,
   modelId,
-  isWebSearchEnabled = false,
+  isWebSearchEnabled = false
 ) => {
-  const model = MODEL_REGISTRY.find((m) => m.id === modelId);
-  if (!model) throw new Error("Model not found in registry.");
+  // Get current session token — server uses this to fetch the right API key
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  let apiKey = await getActiveApiKey(model.provider);
-  if (!apiKey && model.provider === "OpenRouter") {
-    apiKey = import.meta.env.VITE_GUEST_API_KEY;
+  const headers = { "Content-Type": "application/json" };
+
+  // Attach JWT if the user is logged in
+  // (guests have no token — server falls back to the guest key for the free model)
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
   }
-  if (!apiKey)
-    throw new Error(`Please add an API key for ${model.provider} in Settings.`);
 
-  const aiModel = buildAiModel(model, apiKey);
-  const contextLimit = CONTEXT_LIMITS[model.provider] ?? 20;
-  const truncatedMessages = messages.slice(-contextLimit);
-
-  const webSearchTool = tool({
-    description:
-      "Search the web for current information. Use this when you don't know something, when asked to search online, or when the question involves recent events, news, prices, or anything that may have changed.",
-    parameters: z.object({
-      query: z.string().min(1).describe("The specific search query to look up online"),
-    }),
-    execute: async (args) => {
-      // Guard against null/missing args from buggy models
-      const query = args?.query || "";
-      if (!query) return "Search failed: no query provided.";
-      try {
-        return await tavilySearch(query);
-      } catch (err) {
-        return `Search failed: ${err.message}`;
-      }
-    },
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ messages, modelId, isWebSearchEnabled }),
   });
 
-  // ── Case 1: Web search OFF — normal call ──────────────────────────────────
-  if (!isWebSearchEnabled) {
-    try {
-      const { text } = await generateText({
-        model: aiModel,
-        system: LUMINA_SYSTEM_PROMPT,
-        messages: truncatedMessages,
-      });
-      return text;
-    } catch (error) {
-      console.error("LLM Error:", error);
-      throw new Error(error.message || "Failed to generate response.");
-    }
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Server error: ${response.status}`);
   }
 
-  // ── Case 2: Web search ON but provider doesn't support tools ─────────────
-  if (NO_TOOL_SUPPORT.includes(model.provider)) {
-    try {
-      const lastUserMessage = truncatedMessages.findLast((m) => m.role === "user")?.content || "";
-      
-      // Ask the model first: does this need a web search?
-      const { text: needsSearch } = await generateText({
-        model: aiModel,
-        system: "You are a classifier. Reply with only 'YES' if the user's question requires current/real-time information from the web (news, prices, weather, recent events). Reply with only 'NO' if you can answer from general knowledge.",
-        messages: [{ role: "user", content: lastUserMessage }],
-      });
-  
-      if (needsSearch.trim().toUpperCase().includes("YES")) {
-        const searchResults = await tavilySearch(lastUserMessage);
-        const { text } = await generateText({
-          model: aiModel,
-          system: LUMINA_SYSTEM_PROMPT + `\n\nCurrent web search context:\n\n${searchResults}\n\nUse this where relevant.`,
-          messages: truncatedMessages,
-        });
-        return text;
-      } else {
-        // Doesn't need search — answer normally
-        const { text } = await generateText({
-          model: aiModel,
-          system: LUMINA_SYSTEM_PROMPT,
-          messages: truncatedMessages,
-        });
-        return text;
-      }
-    } catch (err) {
-      console.error("Pre-search fallback error:", err);
-      throw new Error(err.message || "Search failed.");
-    }
-  }
-
-  // ── Case 3: Web search ON + provider supports tools ───────────────────────
-  try {
-    const result = await generateText({
-      model: aiModel,
-      system:
-        LUMINA_SYSTEM_PROMPT +
-        "\n\nYou have access to a web search tool. Use it when you're unsure about something, when asked to search online, or when the question involves recent or real-time information. Don't search for things you already know well.",
-      messages: truncatedMessages,
-      tools: { webSearch: webSearchTool },
-      maxSteps: 5,
-      toolChoice: "auto",
-    });
-
-    console.log("result.text:", result.text);
-    console.log("result.steps:", JSON.stringify(result.steps, null, 2));
-    console.log("finishReason:", result.finishReason);
-
-    // When a tool is called, result.text is empty — the actual final answer
-    // lives in the last step that contains text
-    const text =
-      result.text || result.steps?.findLast((s) => s.text?.trim())?.text || "";
-
-    return text;
-  } catch (error) {
-    // Tool call not supported — catch and return friendly message
-    const msg = error.message?.toLowerCase() || "";
-    if (
-      msg.includes("tool") ||
-      msg.includes("function") ||
-      msg.includes("not supported") ||
-      msg.includes("does not support")
-    ) {
-      // Fallback to pre-search injection
-      try {
-        const lastUserMessage = truncatedMessages.findLast((m) => m.role === "user")?.content || "";
-        const searchResults = await tavilySearch(lastUserMessage);
-        const { text } = await generateText({
-          model: aiModel,
-          system: LUMINA_SYSTEM_PROMPT + `\n\nCurrent web search context:\n\n${searchResults}\n\nUse this where relevant.`,
-          messages: truncatedMessages,
-        });
-        return text;
-      } catch {
-        return `⚠️ **${model.name}** doesn't support web search and the fallback also failed. Try a different model.`;
-      }
-    }
-
-    console.error("LLM Error:", error);
-    throw new Error(error.message || "Failed to generate response.");
-  }
+  const data = await response.json();
+  return data.text;
 };

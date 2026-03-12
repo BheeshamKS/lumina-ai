@@ -124,7 +124,7 @@ export const MODEL_REGISTRY = [
 
   // ── OPENROUTER ──
   { id: "openrouter/auto", name: "Auto", provider: "OpenRouter", type: "Free", isDefault: true, isGuestModel: true },
-  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B", provider: "OpenRouter", type: "Free", isDefault: true },
+  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B", provider: "OpenRouter", type: "Free", isDefault: false },
   { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1", provider: "OpenRouter", type: "Free (Reasoning)", isDefault: false },
   { id: "z-ai/glm-4.5-air:free", name: "GLM 4.5 Air", provider: "OpenRouter", type: "Free", isDefault: false },
   { id: "anthropic/claude-3.7-sonnet", name: "Claude 3.7 Sonnet", provider: "OpenRouter", type: "Paid (Flagship)", isDefault: false },

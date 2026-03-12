@@ -121,6 +121,16 @@ function App() {
     );
   }
 
+  const settingsElement = session ? (
+    <SettingsPage
+      darkMode={darkMode}
+      onToggleDark={setDarkMode}
+      session={session}
+    />
+  ) : (
+    <Navigate to="/new" replace />
+  );
+
   return (
     <Router>
       <div className="flex h-screen bg-app font-sans antialiased overflow-hidden">
@@ -143,20 +153,10 @@ function App() {
               element={<ChatPage darkMode={darkMode} session={session} />}
             />
 
-            <Route
-              path="/settings"
-              element={
-                session ? (
-                  <SettingsPage
-                    darkMode={darkMode}
-                    onToggleDark={setDarkMode}
-                    session={session}
-                  />
-                ) : (
-                  <Navigate to="/new" replace />
-                )
-              }
-            />
+            <Route path="/settings" element={settingsElement} />
+            <Route path="/settings/account" element={settingsElement} />
+            <Route path="/settings/appearance" element={settingsElement} />
+            <Route path="/settings/providers" element={settingsElement} />
           </Routes>
 
           <AuthModal

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { ToggleSwitch } from "../components/toggleSwitch";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   User,
   Palette,
@@ -215,11 +214,11 @@ const BrowseModelsPopup = ({
                       {model.type}
                     </span>
                   </div>
-                  <ToggleSwitch
-                    isOn={enabledModels.includes(model.id)}
-                    onToggle={() =>
-                      handleToggle(model, !enabledModels.includes(model.id))
-                    }
+                  <input
+                    type="checkbox"
+                    checked={isEnabled}
+                    onChange={(e) => handleToggle(model, e.target.checked)}
+                    className="w-4 h-4 rounded border-border-main accent-accent shrink-0"
                   />
                 </label>
               );
@@ -486,14 +485,13 @@ const ProviderCard = ({
                         {model.type}
                       </span>
                     </div>
-                    <ToggleSwitch
-                      isOn={enabledModels.includes(model.id)}
-                      onToggle={() =>
-                        onModelToggle(
-                          model.id,
-                          !enabledModels.includes(model.id),
-                        )
+                    <input
+                      type="checkbox"
+                      checked={enabledModels.includes(model.id)}
+                      onChange={(e) =>
+                        onModelToggle(model.id, e.target.checked)
                       }
+                      className="w-4 h-4 rounded border-border-main accent-accent"
                     />
                   </label>
                 );
@@ -521,15 +519,32 @@ const AccountSection = ({ session }) => {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!session?.user) return;
-      const metaName =
-        session.user.user_metadata?.["Display name"] ||
-        session.user.user_metadata?.full_name ||
-        session.user.user_metadata?.name ||
-        session.user.email?.split("@")[0] ||
-        "";
-      setNewName(metaName);
-      setProfile({ "Display name": metaName });
-      setIsLoading(false);
+      try {
+        // Try users table first
+        const { data, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        if (!error && data) {
+          setProfile(data);
+          setNewName(data?.["Display name"] || "");
+        } else {
+          // Fallback to auth metadata
+          const metaName =
+            session.user.user_metadata?.["Display name"] ||
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            "";
+          setNewName(metaName);
+          setProfile({ "Display name": metaName });
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchProfile();
   }, [session]);
@@ -541,7 +556,7 @@ const AccountSection = ({ session }) => {
       await supabase
         .from("users")
         .update({ "Display name": newName.trim() })
-        .eq("UID", session.user.id);
+        .eq("id", session.user.id);
       setProfile((prev) => ({ ...prev, "Display name": newName.trim() }));
       setIsEditingName(false);
       setNameSaved(true);
@@ -919,9 +934,29 @@ const NAV_ITEMS = [
   { id: "models", label: "Models & APIs", icon: Key },
 ];
 
+// Maps URL path segment → internal section id
+const URL_TO_SECTION = {
+  account: "account",
+  appearance: "appearance",
+  providers: "models",
+};
+
+// Maps internal section id → URL path
+const SECTION_TO_URL = {
+  account: "/settings/account",
+  appearance: "/settings/appearance",
+  models: "/settings/providers",
+};
+
 export const SettingsPage = ({ darkMode, onToggleDark, session }) => {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("account");
+  const location = useLocation();
+
+  // Derive active section from the URL — defaults to "account"
+  const urlSegment = location.pathname.split("/settings/")[1]; // e.g. "appearance"
+  const activeSection = URL_TO_SECTION[urlSegment] ?? "account";
+
+  const goToSection = (id) => navigate(SECTION_TO_URL[id]);
 
   return (
     <div className="w-full h-full flex bg-app overflow-hidden">
@@ -947,7 +982,7 @@ export const SettingsPage = ({ darkMode, onToggleDark, session }) => {
           {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setActiveSection(id)}
+              onClick={() => goToSection(id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
                 activeSection === id
                   ? "bg-card-hover text-card-text-hover font-medium"

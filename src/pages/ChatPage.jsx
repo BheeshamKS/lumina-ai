@@ -459,14 +459,6 @@ export const ChatPage = ({ darkMode, session }) => {
     }
   };
 
-  if ((isModelsLoading || isCheckingKeys) && messages.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-app">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-sidebar-ring"></div>
-      </div>
-    );
-  }
-
   return (
     <>
       <ChatArea
@@ -513,7 +505,11 @@ export const ChatPage = ({ darkMode, session }) => {
           !hasCompletedOnboarding
         }
         onClose={() => setHasCompletedOnboarding(true)}
-        onSaveKey={(key) => setHasCompletedOnboarding(true)}
+        onSaveKey={async () => {
+          setHasCompletedOnboarding(true);
+          const providers = await getUserConfiguredProviders();
+          setNeedsOnboarding(providers.length === 0);
+        }}
       />
     </>
   );

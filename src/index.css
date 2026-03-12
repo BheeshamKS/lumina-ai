@@ -58,7 +58,10 @@
   
   /* The Input Box */
   --color-inputcard: #ffffff;    
-  --color-outputmessage: #141413;     
+  --color-outputmessage: #141413;  
+  
+  --color-bgDropDown: #ffffff;
+  --color-bgDropDownBorder: #bbbbbb ;
   
   --color-primary: #2d2b29;       
   --color-secondary: #7e7a75;    
@@ -98,6 +101,9 @@
   /* The Input Box */
   --color-inputcard: #30302e;
   --color-outputmessage: #faf9f5;
+
+  --color-bgDropDown: #30302e;
+  --color-bgDropDownBorder: #65645f ;
   
   --color-primary: #e6e4df;    
   --color-secondary: #908d85;   

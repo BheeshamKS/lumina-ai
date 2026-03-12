@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getUserConfiguredProviders } from "../utils/apiKeys";
 import { supabase } from "../utils/supabase";
@@ -85,6 +85,47 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const MESSAGES_PER_PAGE = 50;
+
+  const loadEnabledModels = useCallback(async () => {
+    setIsModelsLoading(true);
+    try {
+      let configuredProviders = [];
+      if (session) {
+        configuredProviders = await getUserConfiguredProviders();
+      }
+      const enabledIds = await getEnabledModels();
+      const guestModel = MODEL_REGISTRY.find((m) => m.isGuestModel);
+
+      if (!session) {
+        setAvailableModels([guestModel]);
+        setActiveModel(guestModel);
+        return;
+      }
+
+      const finalList = MODEL_REGISTRY.filter((m) => {
+        if (m.isGuestModel) return false;
+        if (!enabledIds.includes(m.id)) return false;
+        return configuredProviders.includes(m.provider);
+      });
+
+      setAvailableModels(finalList);
+      setActiveModel((prev) => {
+        const stillAvailable = prev && finalList.some((m) => m.id === prev.id);
+        if (stillAvailable) return prev;
+        return finalList.length > 0 ? finalList[0] : null;
+      });
+    } catch (error) {
+      setAvailableModels([GUEST_DEFAULT_MODEL]);
+      setActiveModel(GUEST_DEFAULT_MODEL);
+    } finally {
+      setIsModelsLoading(false);
+    }
+  }, [session]);
+
+  // 2. Separate effect that just calls it
+  useEffect(() => {
+    loadEnabledModels();
+  }, [loadEnabledModels]);
 
   useEffect(() => {
     const loadEnabledModels = async () => {
@@ -515,6 +556,9 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
           setHasCompletedOnboarding(true);
           const providers = await getUserConfiguredProviders();
           setNeedsOnboarding(providers.length === 0);
+          if (providers.length > 0) {
+            await loadEnabledModels(); // call directly, no setTimeout needed
+          }
         }}
       />
     </>

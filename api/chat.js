@@ -52,50 +52,9 @@ const NO_TOOL_SUPPORT = ["Groq", "Perplexity", "TogetherAI"];
 
 // Model ID → provider mapping — keep in sync with src/utils/models.js
 // This lets us look up the provider without importing from src/
-const MODEL_PROVIDER_MAP = {
-  // Google
-  "gemini-2.0-flash": "Google",
-  "gemini-2.0-flash-lite": "Google",
-  "gemini-2.5-pro-preview-03-25": "Google",
-  "gemini-1.5-pro": "Google",
-  "gemini-1.5-flash": "Google",
-  // OpenRouter (guest + paid)
-  "meta-llama/llama-4-maverick:free": "OpenRouter",
-  "meta-llama/llama-4-maverick": "OpenRouter",
-  "openai/gpt-4.1": "OpenRouter",
-  "anthropic/claude-sonnet-4-5": "OpenRouter",
-  // Groq
-  "llama-3.3-70b-versatile": "Groq",
-  "llama-3.1-8b-instant": "Groq",
-  "meta-llama/llama-4-scout-17b-16e-instruct": "Groq",
-  "compound-beta": "Groq",
-  // OpenAI
-  "gpt-4o": "OpenAI",
-  "gpt-4o-mini": "OpenAI",
-  "gpt-4.1": "OpenAI",
-  "o3-mini": "OpenAI",
-  // Anthropic
-  "claude-opus-4-5-20250514": "Anthropic",
-  "claude-sonnet-4-5-20250514": "Anthropic",
-  "claude-haiku-4-5-20251001": "Anthropic",
-  // DeepSeek
-  "deepseek-chat": "DeepSeek",
-  "deepseek-reasoner": "DeepSeek",
-  // Mistral
-  "mistral-large-latest": "Mistral",
-  "mistral-small-latest": "Mistral",
-  // xAI
-  "grok-3": "xAI",
-  "grok-3-mini": "xAI",
-  // Perplexity
-  "sonar-pro": "Perplexity",
-  "sonar": "Perplexity",
-  // TogetherAI
-  "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": "TogetherAI",
-};
+const GUEST_MODEL_ID = "openrouter/auto";
 
-// Guest model ID — only this one works without a user API key
-const GUEST_MODEL_ID = "meta-llama/llama-4-maverick:free";
+
 
 const LUMINA_SYSTEM_PROMPT = `You are Lumina, a helpful and intelligent AI assistant. You provide clear, accurate, and thoughtful responses. You are conversational, warm, and concise unless asked for detail.`;
 
@@ -157,75 +116,120 @@ const buildAiModel = (provider, modelId, apiKey) => {
 // ─── Core LLM call ────────────────────────────────────────────────────────────
 
 const callLLM = async (provider, modelId, apiKey, messages, isWebSearchEnabled) => {
-  const aiModel = buildAiModel(provider, modelId, apiKey);
-  const contextLimit = CONTEXT_LIMITS[provider] ?? 20;
-  const truncatedMessages = messages.slice(-contextLimit);
-
-  // Web search OFF
-  if (!isWebSearchEnabled) {
-    const { text } = await generateText({
-      model: aiModel,
-      system: LUMINA_SYSTEM_PROMPT,
-      messages: truncatedMessages,
-    });
-    return text;
-  }
-
-  // Web search ON but provider doesn't support tools → friendly message
-  if (NO_TOOL_SUPPORT.includes(provider)) {
-    return `⚠️ **Web search** isn't available for this model. Switch to Gemini, GPT-4o, Claude, or an OpenRouter model to use web search.`;
-  }
-
-  // Web search ON + tools supported
-  const webSearchTool = tool({
-    description:
-      "Search the web for current information. Use when you don't know something, when asked to search online, or when the question involves recent events, news, prices, or real-time data.",
-    parameters: z.object({
-      query: z.string().describe("The search query to look up"),
-    }),
-    execute: async ({ query }) => {
-      try {
-        return await tavilySearch(query);
-      } catch (err) {
-        return `Search failed: ${err.message}`;
-      }
-    },
-  });
-
-  try {
-    const result = await generateText({
-      model: aiModel,
-      system:
-        LUMINA_SYSTEM_PROMPT +
-        "\n\nYou have access to a web search tool. Use it when you're unsure about something, when asked to search online, or when the question involves recent or real-time information.",
-      messages: truncatedMessages,
-      tools: { webSearch: webSearchTool },
-      maxSteps: 5,
-    });
-
-    // Extract text from result or last step
-    return (
-      result.text ||
-      result.steps?.findLast((s) => s.text?.trim())?.text ||
-      ""
-    );
-  } catch (error) {
-    const msg = error.message?.toLowerCase() || "";
-    if (
-      msg.includes("tool") ||
-      msg.includes("function") ||
-      msg.includes("not supported")
-    ) {
-      return `⚠️ This model doesn't support web search. Please switch to a different model.`;
+    const aiModel = buildAiModel(provider, modelId, apiKey);
+    const contextLimit = CONTEXT_LIMITS[provider] ?? 20;
+    const truncatedMessages = messages.slice(-contextLimit);
+  
+    // 1. Web search OFF
+    if (!isWebSearchEnabled) {
+      const { text } = await generateText({
+        model: aiModel,
+        system: LUMINA_SYSTEM_PROMPT,
+        messages: truncatedMessages,
+      });
+      return text;
     }
-    throw error;
-  }
-};
+  
+    // Define the tool for providers that DO support it
+    const webSearchTool = tool({
+      description:
+        "Search the web for current information. Use when you don't know something, when asked to search online, or when the question involves recent events, news, prices, or real-time data.",
+      parameters: z.object({
+        query: z.string().describe("The search query to look up"),
+      }),
+      execute: async ({ query }) => {
+        if (!query) return "Search failed: no query provided.";
+        try {
+          return await tavilySearch(query);
+        } catch (err) {
+          return `Search failed: ${err.message}`;
+        }
+      },
+    });
+  
+    // 2. Web search ON but provider doesn't support tools -> Use the Gatekeeper!
+    if (NO_TOOL_SUPPORT.includes(provider)) {
+      try {
+        const lastUserMessage = truncatedMessages.findLast((m) => m.role === "user")?.content || "";
+        
+        // Ask the model first: does this need a web search?
+        const { text: needsSearch } = await generateText({
+          model: aiModel,
+          system: "You are a classifier. Reply with only 'YES' if the user's question requires current/real-time information from the web (news, prices, weather, recent events). Reply with only 'NO' if you can answer from general knowledge.",
+          messages: [{ role: "user", content: lastUserMessage }],
+        });
+  
+        if (needsSearch.trim().toUpperCase().includes("YES")) {
+          const searchResults = await tavilySearch(lastUserMessage);
+          const { text } = await generateText({
+            model: aiModel,
+            system: LUMINA_SYSTEM_PROMPT + `\n\nCurrent web search context:\n\n${searchResults}\n\nUse this where relevant.`,
+            messages: truncatedMessages,
+          });
+          return text;
+        } else {
+          // Doesn't need search — answer normally! (This fixes the "hi" bug)
+          const { text } = await generateText({
+            model: aiModel,
+            system: LUMINA_SYSTEM_PROMPT,
+            messages: truncatedMessages,
+          });
+          return text;
+        }
+      } catch (err) {
+        console.error("Pre-search fallback error:", err);
+        throw new Error(err.message || "Search failed.");
+      }
+    }
+  
+    // 3. Web search ON + tools supported natively
+    try {
+      const result = await generateText({
+        model: aiModel,
+        system:
+          LUMINA_SYSTEM_PROMPT +
+          "\n\nYou have access to a web search tool. Use it when you're unsure about something, when asked to search online, or when the question involves recent or real-time information.",
+        messages: truncatedMessages,
+        tools: { webSearch: webSearchTool },
+        maxSteps: 5,
+      });
+  
+      // Extract text from result or last step
+      return (
+        result.text ||
+        result.steps?.findLast((s) => s.text?.trim())?.text ||
+        ""
+      );
+    } catch (error) {
+      const msg = error.message?.toLowerCase() || "";
+      if (
+        msg.includes("tool") ||
+        msg.includes("function") ||
+        msg.includes("not supported") ||
+        msg.includes("does not support")
+      ) {
+        // 4. Ultimate Fallback: If OpenRouter lies about tool support, inject context manually
+        try {
+          const lastUserMessage = truncatedMessages.findLast((m) => m.role === "user")?.content || "";
+          const searchResults = await tavilySearch(lastUserMessage);
+          const { text } = await generateText({
+            model: aiModel,
+            system: LUMINA_SYSTEM_PROMPT + `\n\nCurrent web search context:\n\n${searchResults}\n\nUse this where relevant.`,
+            messages: truncatedMessages,
+          });
+          return text;
+        } catch {
+          return `⚠️ **${provider}** doesn't support web search and the fallback failed. Try a different model.`;
+        }
+      }
+      throw error;
+    }
+  };
+
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  // CORS headers (needed if your frontend domain differs from API domain)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -234,26 +238,19 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { messages, modelId, isWebSearchEnabled = false } = req.body;
+    // 🚨 WE NOW EXTRACT 'provider' DIRECTLY FROM THE FRONTEND
+    const { messages, modelId, provider, isWebSearchEnabled = false } = req.body;
 
-    if (!messages || !modelId) {
-      return res.status(400).json({ error: "Missing messages or modelId" });
-    }
-
-    const provider = MODEL_PROVIDER_MAP[modelId];
-    if (!provider) {
-      return res.status(400).json({ error: `Unknown model: ${modelId}` });
+    if (!messages || !modelId || !provider) {
+      return res.status(400).json({ error: "Missing messages, modelId, or provider" });
     }
 
     // ── Determine API key ──────────────────────────────────────────────────
-
     let apiKey = null;
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
     if (token) {
-      // Authenticated user — create a Supabase client with their JWT so RLS applies
-      // This means get_secure_keys() only returns THEIR keys, exactly like the browser does
       const userSupabase = createClient(
         process.env.SUPABASE_URL,
         process.env.SUPABASE_ANON_KEY,
@@ -273,7 +270,7 @@ export default async function handler(req, res) {
       apiKey = activeKey?.api_key ?? null;
     }
 
-    // Guest fallback — only for the designated guest model
+    // Guest fallback 
     if (!apiKey && modelId === GUEST_MODEL_ID && provider === "OpenRouter") {
       apiKey = process.env.OPENROUTER_KEY;
     }

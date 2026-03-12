@@ -1,31 +1,21 @@
-/**
- * src/utils/llmRouter.js — Client-side proxy caller
- *
- * No API keys here. No provider SDKs here.
- * All LLM logic lives in /api/chat.js (server-side).
- *
- * This file just:
- *   1. Gets the user's current Supabase JWT
- *   2. POSTs to /api/chat with the conversation + JWT
- *   3. Returns the response text
- */
-
 import { supabase } from "./supabase";
+import { getAllModels } from "./models"; // 🚨 NEW IMPORT
 
 export const sendMessageToLLM = async (
   messages,
   modelId,
   isWebSearchEnabled = false
 ) => {
-  // Get current session token — server uses this to fetch the right API key
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  // 🚨 DYNAMIC PROVIDER LOOKUP
+  // This ensures even custom models added via "Browse Models" route correctly!
+  const allModels = await getAllModels();
+  const activeModel = allModels.find((m) => m.id === modelId);
+  const provider = activeModel?.provider || "OpenRouter"; // Safe fallback
 
   const headers = { "Content-Type": "application/json" };
 
-  // Attach JWT if the user is logged in
-  // (guests have no token — server falls back to the guest key for the free model)
   if (session?.access_token) {
     headers["Authorization"] = `Bearer ${session.access_token}`;
   }
@@ -33,7 +23,8 @@ export const sendMessageToLLM = async (
   const response = await fetch("/api/chat", {
     method: "POST",
     headers,
-    body: JSON.stringify({ messages, modelId, isWebSearchEnabled }),
+    // 🚨 NOW SENDING 'provider' TO THE SERVER!
+    body: JSON.stringify({ messages, modelId, provider, isWebSearchEnabled }),
   });
 
   if (!response.ok) {

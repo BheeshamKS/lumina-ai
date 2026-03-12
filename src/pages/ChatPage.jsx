@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getUserConfiguredProviders } from "../utils/apiKeys";
+import { supabase } from "../utils/supabase";
 import {
   MODEL_REGISTRY,
   GUEST_DEFAULT_MODEL,
@@ -20,7 +21,7 @@ import {
   getConversationTitle,
 } from "../utils/chatHistory";
 
-export const ChatPage = ({ darkMode, session }) => {
+export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
   const [availableModels, setAvailableModels] = useState([]);
   const [activeModel, setActiveModel] = useState(null);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
@@ -43,20 +44,38 @@ export const ChatPage = ({ darkMode, session }) => {
   const chatEndRef = useRef(null);
   const isCreatingChat = useRef(false);
 
-  const hour = new Date().getHours();
-  const firstName =
-    session?.user?.user_metadata?.["Display name"]?.split(" ")[0] ||
-    session?.user?.user_metadata?.full_name?.split(" ")[0] ||
-    session?.user?.user_metadata?.name?.split(" ")[0] ||
-    null;
+  const [preferredName, setPreferredName] = useState(null);
 
+  useEffect(() => {
+    const fetchPreferredName = async () => {
+      if (!session?.user) return;
+      const { data } = await supabase
+        .from("users")
+        .select("nickname")
+        .eq("id", session.user.id)
+        .single();
+      if (data && data.nickname) {
+        setPreferredName(data.nickname);
+      }
+    };
+    fetchPreferredName();
+  }, [session]);
+
+  const hour = new Date().getHours();
   let timeGreeting;
   if (hour >= 5 && hour < 12) timeGreeting = "Good morning";
   else if (hour >= 12 && hour < 18) timeGreeting = "Good afternoon";
   else if (hour >= 18 && hour < 22) timeGreeting = "Good evening";
   else timeGreeting = "Moonlit chat?";
 
-  const greeting = firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
+  const authFullName =
+    session?.user?.user_metadata?.full_name ||
+    session?.user?.user_metadata?.name ||
+    "";
+  const baseFirstName = authFullName ? authFullName.split(" ")[0] : null;
+  const finalName = preferredName || baseFirstName;
+
+  const greeting = finalName ? `${timeGreeting}, ${finalName}` : timeGreeting;
 
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [isCheckingKeys, setIsCheckingKeys] = useState(true);
@@ -67,24 +86,18 @@ export const ChatPage = ({ darkMode, session }) => {
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const MESSAGES_PER_PAGE = 50;
 
-  // ── FEATURE 1 & 3: Key Check + Filtered Model Loading ──
-  // Runs whenever session changes (login/logout) or chatId changes.
-  // Builds the available model list by checking which providers have keys.
   useEffect(() => {
     const loadEnabledModels = async () => {
       setIsModelsLoading(true);
       try {
-        // Step 1: Get which providers the user has keys for
         let configuredProviders = [];
         if (session) {
           configuredProviders = await getUserConfiguredProviders();
         }
 
-        // Step 2: Get the full list of model IDs the user has enabled
         const enabledIds = await getEnabledModels();
         const guestModel = MODEL_REGISTRY.find((m) => m.isGuestModel);
 
-        // Guest sees only the one free model — nothing else
         if (!session) {
           setAvailableModels([guestModel]);
           setActiveModel(guestModel);
@@ -93,9 +106,9 @@ export const ChatPage = ({ darkMode, session }) => {
         }
 
         const finalList = MODEL_REGISTRY.filter((m) => {
-          if (m.isGuestModel) return false; // 1. Never show the guest model
-          if (!enabledIds.includes(m.id)) return false; // 2. Must be enabled
-          return configuredProviders.includes(m.provider); // 3. Must have an API key configured
+          if (m.isGuestModel) return false;
+          if (!enabledIds.includes(m.id)) return false;
+          return configuredProviders.includes(m.provider);
         });
 
         setAvailableModels(finalList);
@@ -104,13 +117,10 @@ export const ChatPage = ({ darkMode, session }) => {
           const stillAvailable =
             prev && finalList.some((m) => m.id === prev.id);
           if (stillAvailable) return prev;
-
-          // If their previous model is gone, default to the first one they actually have a key for
           return finalList.length > 0 ? finalList[0] : null;
         });
       } catch (error) {
         console.error("Error loading models:", error);
-        // Fail-safe: always give the user at least the free model
         setAvailableModels([GUEST_DEFAULT_MODEL]);
         setActiveModel(GUEST_DEFAULT_MODEL);
       } finally {
@@ -136,7 +146,7 @@ export const ChatPage = ({ darkMode, session }) => {
 
   useEffect(() => {
     if (textAreaRef.current) {
-      const minHeight = messages.length === 0 ? 60 : 44; // px — adjust these
+      const minHeight = messages.length === 0 ? 60 : 44;
       textAreaRef.current.style.height = "auto";
       const newHeight = Math.max(textAreaRef.current.scrollHeight, minHeight);
       textAreaRef.current.style.height = newHeight + "px";
@@ -169,7 +179,6 @@ export const ChatPage = ({ darkMode, session }) => {
           return;
         }
 
-        // Fresh load: reset pagination!
         setMessagePage(0);
         const history = await getChatMessages(chatId, 0, MESSAGES_PER_PAGE);
         const fetchedTitle = await getConversationTitle(chatId);
@@ -188,7 +197,6 @@ export const ChatPage = ({ darkMode, session }) => {
     return () => window.removeEventListener("migrationComplete", loadChat);
   }, [chatId]);
 
-  // 🚨 THE NEW UPWARD SCROLL FUNCTION
   const loadOlderMessages = async () => {
     if (isLoadingOlder || !hasMoreMessages || !chatId) return;
 
@@ -201,14 +209,12 @@ export const ChatPage = ({ darkMode, session }) => {
     );
 
     if (olderMessages.length > 0) {
-      // Save scroll position before prepending
       const container = document.querySelector(".overflow-y-auto");
       const scrollHeightBefore = container?.scrollHeight || 0;
 
       setMessages((prev) => [...olderMessages, ...prev]);
       setMessagePage(nextPage);
 
-      // After render, restore scroll position so user doesn't jump
       requestAnimationFrame(() => {
         if (container) {
           const scrollHeightAfter = container.scrollHeight;
@@ -218,13 +224,11 @@ export const ChatPage = ({ darkMode, session }) => {
     }
 
     if (olderMessages.length < MESSAGES_PER_PAGE) {
-      setHasMoreMessages(false); // Hit the beginning of time
+      setHasMoreMessages(false);
     }
 
     setIsLoadingOlder(false);
   };
-
-  // --- LOGIN/LOGOUT TRANSITION WATCHER ---
 
   useEffect(() => {
     const wasLoggedIn = !!prevSessionRef.current;
@@ -285,6 +289,7 @@ export const ChatPage = ({ darkMode, session }) => {
         activeModel.id,
         isWebSearchEnabled,
       );
+
       setMessages((prev) => [
         ...prev,
         {
@@ -297,7 +302,14 @@ export const ChatPage = ({ darkMode, session }) => {
       if (currentChatId) {
         saveMessage(currentChatId, "ai", responseText);
         if (isFirstMessage) {
-          generateBackgroundTitle(currentChatId, userText);
+          generateBackgroundTitle(
+            currentChatId,
+            userText,
+            activeModel,
+            session,
+          ).then((title) => {
+            if (title) setChatTitle(title);
+          });
         }
       }
 
@@ -389,13 +401,9 @@ export const ChatPage = ({ darkMode, session }) => {
   const handleEditSubmit = async (index, newText) => {
     if (isLoading || !newText.trim()) return;
 
-    // 1. Capture the timestamp of the message we are about to overwrite!
     const editedMessageTimestamp = messages[index].created_at;
-
-    // 2. Time Travel: Slice off everything AFTER the edited message for the UI
     const previousMessages = messages.slice(0, index);
 
-    // 3. Append the newly edited user text (with a fresh timestamp)
     const updatedMessages = [
       ...previousMessages,
       {
@@ -409,18 +417,13 @@ export const ChatPage = ({ darkMode, session }) => {
     setIsLoading(true);
 
     try {
-      // 🚨 PHASE 2: DATABASE TIME TRAVEL
       if (session && chatId && editedMessageTimestamp) {
-        // A. Delete the old timeline from Supabase
         await import("../utils/chatHistory").then((m) =>
           m.deleteMessagesAfterTimestamp(chatId, editedMessageTimestamp),
         );
-
-        // B. Save the newly edited user message to the database
         await saveMessage(chatId, "user", newText.trim());
       }
 
-      // Format for the LLM Router
       const MAX_CONTEXT = 20;
       const recentMessages = updatedMessages.slice(-MAX_CONTEXT);
       const messagesForRouter = recentMessages.map((msg) => ({
@@ -428,14 +431,12 @@ export const ChatPage = ({ darkMode, session }) => {
         content: msg.content,
       }));
 
-      // Send the alternate timeline to the AI!
       const responseText = await sendMessageToLLM(
         messagesForRouter,
         activeModel.id,
         isWebSearchEnabled,
       );
 
-      // Update UI with AI response
       setMessages((prev) => [
         ...prev,
         {
@@ -445,7 +446,6 @@ export const ChatPage = ({ darkMode, session }) => {
         },
       ]);
 
-      // 🚨 Save the new AI response to the database
       if (session && chatId) {
         await saveMessage(chatId, "ai", responseText);
       }
@@ -474,6 +474,8 @@ export const ChatPage = ({ darkMode, session }) => {
         hasMoreMessages={hasMoreMessages}
         isLoadingOlder={isLoadingOlder}
         onEdit={handleEditSubmit}
+        onOpenSidebar={onOpenSidebar}
+        onNewChat={() => navigate("/new")}
       />
 
       <InputArea
@@ -515,40 +517,53 @@ export const ChatPage = ({ darkMode, session }) => {
   );
 };
 
-// --- TITLE GENERATOR ---
-const generateBackgroundTitle = async (chatId, firstMessage) => {
+const generateBackgroundTitle = async (
+  chatId,
+  firstMessage,
+  activeModel,
+  session,
+) => {
   try {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const guestKey = import.meta.env.VITE_GUEST_API_KEY;
-    if (!guestKey) return;
+    const provider = activeModel?.provider || "OpenRouter";
+    const modelId = activeModel?.id || "openrouter/auto";
 
     const prompt = `Based on this user message: "${firstMessage}", create a descriptive title.
                     REQUIREMENTS: 
-                    - Length: 6 to 8 words.
+                    - Length: 3 to 6 words.
                     - Tone: Professional and clear.
-                    - Format: Plain text only, no quotes.
-                    Example: Comprehensive guide to building React components with Tailwind`;
+                    - Format: Plain text only, no quotes, no labels.
+                    Example: React Components with Tailwind`;
 
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${guestKey}`,
-        },
-        body: JSON.stringify({
-          model: "openrouter/auto",
-          messages: [{ role: "user", content: prompt }],
-        }),
-      },
-    );
+    const headers = { "Content-Type": "application/json" };
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        messages: [{ role: "user", content: prompt }],
+        modelId,
+        provider,
+        isWebSearchEnabled: false,
+      }),
+    });
+
+    if (!response.ok) throw new Error("Title generation failed");
 
     const data = await response.json();
-    let newTitle = data.choices[0].message.content.trim().replace(/[*"']/g, "");
+    let newTitle = data.text
+      .trim()
+      .replace(/[*"']/g, "")
+      .replace(/^Title:\s*/i, "");
+
     await updateConversationTitle(chatId, newTitle);
+    return newTitle;
   } catch (err) {
     console.error("Title generation failed:", err);
+    return null;
   }
 };

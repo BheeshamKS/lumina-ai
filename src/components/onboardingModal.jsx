@@ -115,13 +115,13 @@ export const OnboardingModal = ({ isOpen, onClose, onSaveKey }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-      {/* Modal */}
+      {/* Modal — fullscreen on mobile, card on desktop */}
       <div
-        className="relative w-full max-w-md rounded-2xl overflow-hidden shadow-2xl"
+        className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl max-h-[95dvh] overflow-y-auto"
         style={{
           background: "var(--color-card)",
           border: "1px solid var(--color-sidebar-border)",

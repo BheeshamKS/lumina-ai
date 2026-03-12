@@ -17,13 +17,22 @@ function App() {
   const [darkMode, setDarkMode] = useState(true);
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // On mobile, default closed; on desktop, use saved pref
+    if (typeof window !== "undefined" && window.innerWidth < 768) return false;
     return localStorage.getItem("lumina_sidebar") === "true";
   });
 
   const [session, setSession] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-
   const [isAppReady, setIsAppReady] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add("dark");
@@ -31,54 +40,23 @@ function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    localStorage.setItem("lumina_sidebar", sidebarOpen);
-  }, [sidebarOpen]);
+    // Only persist sidebar state on desktop
+    if (!isMobile) localStorage.setItem("lumina_sidebar", sidebarOpen);
+  }, [sidebarOpen, isMobile]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        await convertGuestToUser(session.user.id);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-
-      if (session) {
-        setShowAuthModal(false);
-        await convertGuestToUser(session.user.id);
-
-        if (window.location.href.includes("#")) {
-          window.history.replaceState(
-            null,
-            "",
-            window.location.href.split("#")[0],
-          );
-        }
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    // 1. Check session and migrate BEFORE the app ever renders
     const initializeApp = async () => {
       try {
         const {
           data: { session: initialSession },
           error,
         } = await supabase.auth.getSession();
-        if (error) throw error; // If Supabase fails, catch it
+        if (error) throw error;
 
         setSession(initialSession);
 
         if (initialSession) {
           await convertGuestToUser(initialSession.user.id);
-
-          // Scrub the URL cleanly
           if (window.location.href.includes("#")) {
             window.history.replaceState(
               null,
@@ -88,22 +66,18 @@ function App() {
           }
         }
       } catch (error) {
-        // If literally anything breaks, it will print here instead of freezing the app
-        console.error("🔥 CRITICAL STARTUP ERROR:", error);
+        console.error("CRITICAL STARTUP ERROR:", error);
       } finally {
-        // 🚨 THE FAIL-SAFE: This runs 100% of the time, guaranteeing the app unlocks!
         setIsAppReady(true);
       }
     };
 
     initializeApp();
 
-    // 2. Listen for normal logouts/logins while using the app
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
-
       if (newSession && event === "SIGNED_IN") {
         setShowAuthModal(false);
         await convertGuestToUser(newSession.user.id);
@@ -116,7 +90,7 @@ function App() {
   if (!isAppReady) {
     return (
       <div className="flex h-screen w-screen bg-app items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-sidebar-ring"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-sidebar-ring" />
       </div>
     );
   }
@@ -126,6 +100,7 @@ function App() {
       darkMode={darkMode}
       onToggleDark={setDarkMode}
       session={session}
+      setSidebarOpen={setSidebarOpen}
     />
   ) : (
     <Navigate to="/new" replace />
@@ -134,23 +109,37 @@ function App() {
   return (
     <Router>
       <div className="flex h-screen bg-app font-sans antialiased overflow-hidden">
-        {/* Pass all Auth state down to the Sidebar */}
         <Sidebar
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
           session={session}
           onOpenAuth={() => setShowAuthModal(true)}
         />
+
         <main className="flex-1 min-w-0 flex flex-col items-center relative bg-app overflow-hidden">
           <Routes>
             <Route path="/" element={<Navigate to="/new" replace />} />
             <Route
               path="/new"
-              element={<ChatPage darkMode={darkMode} session={session} />}
+              element={
+                <ChatPage
+                  darkMode={darkMode}
+                  session={session}
+                  onOpenSidebar={() => setSidebarOpen(true)}
+                  isMobile={isMobile}
+                />
+              }
             />
             <Route
               path="/chat/:chatId"
-              element={<ChatPage darkMode={darkMode} session={session} />}
+              element={
+                <ChatPage
+                  darkMode={darkMode}
+                  session={session}
+                  onOpenSidebar={() => setSidebarOpen(true)}
+                  isMobile={isMobile}
+                />
+              }
             />
 
             <Route path="/settings" element={settingsElement} />

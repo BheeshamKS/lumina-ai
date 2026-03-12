@@ -18,8 +18,11 @@ import {
   Moon,
   Sun,
   Check,
+  Menu,
+  ExternalLink,
 } from "lucide-react";
 import { supabase } from "../utils/supabase";
+import { ToggleSwitch } from "../components/toggleSwitch";
 import {
   getAllUserKeys,
   addApiKey,
@@ -106,15 +109,15 @@ const BrowseModelsPopup = ({
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-200"
     >
-      <div className="bg-card border border-border-main rounded-2xl w-full max-w-xl shadow-2xl flex flex-col max-h-[82vh] animate-in slide-in-from-bottom-4 duration-300">
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border-main shrink-0">
+      <div className="bg-card border border-border-main rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[82vh] animate-in slide-in-from-bottom-4 duration-300">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border-main shrink-0">
           <div>
-            <h3 className="text-[18px] font-semibold text-card-text">
+            <h3 className="text-[17px] font-semibold text-card-text">
               Browse {providerName} Models
             </h3>
-            <p className="text-[13px] text-placeholder mt-0.5">
+            <p className="text-[12px] text-placeholder mt-0.5">
               {hasFetched
                 ? `${fetchedModels.length} models available`
                 : "Fetching from API..."}
@@ -140,31 +143,31 @@ const BrowseModelsPopup = ({
           </div>
         </div>
 
-        <div className="px-5 py-3 border-b border-border-main shrink-0 space-y-2.5">
+        <div className="px-4 py-3 border-b border-border-main shrink-0 space-y-2">
           <div className="relative">
             <Search
-              size={15}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-placeholder"
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-placeholder"
             />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search models..."
-              className="w-full bg-app border border-border-main rounded-xl pl-10 pr-4 py-2.5 text-[14px] text-card-text outline-none focus:border-accent transition-colors"
+              className="w-full bg-app border border-border-main rounded-xl pl-9 pr-4 py-2 text-[13px] text-card-text outline-none focus:border-accent transition-colors"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             {["all", "free", "paid"].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-4 py-1.5 rounded-lg text-[12px] font-medium capitalize transition-all ${filter === f ? "bg-accent text-white" : "bg-app border border-border-main text-placeholder hover:text-card-text"}`}
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium capitalize transition-all ${filter === f ? "bg-accent text-white" : "bg-app border border-border-main text-placeholder hover:text-card-text"}`}
               >
                 {f}
               </button>
             ))}
-            <span className="ml-auto text-[12px] text-placeholder self-center">
+            <span className="ml-auto text-[11px] text-placeholder">
               {filtered.length} shown
             </span>
           </div>
@@ -174,22 +177,22 @@ const BrowseModelsPopup = ({
           {isFetching && !hasFetched ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <RefreshCw size={22} className="animate-spin text-accent" />
-              <p className="text-[14px] text-placeholder">
+              <p className="text-[13px] text-placeholder">
                 Fetching from {providerName}...
               </p>
             </div>
           ) : fetchError ? (
             <div className="p-6 text-center">
-              <p className="text-[14px] text-red-400 mb-3">{fetchError}</p>
+              <p className="text-[13px] text-red-400 mb-3">{fetchError}</p>
               <button
                 onClick={handleFetch}
-                className="text-[13px] text-accent hover:underline"
+                className="text-[12px] text-accent hover:underline"
               >
                 Try again
               </button>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="py-12 text-center text-[14px] text-placeholder">
+            <div className="py-12 text-center text-[13px] text-placeholder">
               No models match your search.
             </div>
           ) : (
@@ -199,26 +202,24 @@ const BrowseModelsPopup = ({
               return (
                 <label
                   key={model.id}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer hover:bg-card-hover transition-all group"
+                  className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer hover:bg-card-hover transition-all"
                 >
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0 mr-4">
-                    <span className="text-[14px] font-medium text-card-text truncate">
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-0 mr-3">
+                    <span className="text-[13px] font-medium text-card-text truncate">
                       {model.name}
                     </span>
-                    <span className="text-[11px] font-mono text-placeholder truncate">
+                    <span className="text-[10px] font-mono text-placeholder truncate">
                       {model.id}
                     </span>
                     <span
-                      className={`text-[11px] font-medium mt-0.5 ${isFree ? "text-green-500/80" : "text-orange-400"}`}
+                      className={`text-[10px] font-medium mt-0.5 ${isFree ? "text-green-500/80" : "text-orange-400"}`}
                     >
                       {model.type}
                     </span>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={isEnabled}
-                    onChange={(e) => handleToggle(model, e.target.checked)}
-                    className="w-4 h-4 rounded border-border-main accent-accent shrink-0"
+                  <ToggleSwitch
+                    isOn={isEnabled}
+                    onToggle={() => handleToggle(model, !isEnabled)}
                   />
                 </label>
               );
@@ -226,16 +227,39 @@ const BrowseModelsPopup = ({
           )}
         </div>
 
-        <div className="px-6 py-3.5 border-t border-border-main shrink-0">
-          <p className="text-[12px] text-placeholder">
-            Selected models are saved to your account and appear in the model
-            selector.
+        <div className="px-5 py-3 border-t border-border-main shrink-0">
+          <p className="text-[11px] text-placeholder">
+            Selected models appear in your model selector.
           </p>
         </div>
       </div>
     </div>
   );
 };
+
+// ==========================================
+// BROWSE ALL MODELS BUTTON
+// ==========================================
+const BrowseAllButton = ({ onClick, disabled }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`group flex items-center gap-2 px-4 py-2 rounded-xl border transition-all text-[13px] font-medium ${
+      disabled
+        ? "border-border-main text-placeholder cursor-not-allowed opacity-60"
+        : "border-accent/40 text-accent hover:bg-accent hover:text-white hover:border-accent hover:shadow-sm active:scale-95"
+    }`}
+  >
+    <Package size={14} className="shrink-0" />
+    <span>Browse All Models</span>
+    {!disabled && (
+      <ExternalLink
+        size={12}
+        className="opacity-60 group-hover:opacity-100 transition-opacity"
+      />
+    )}
+  </button>
+);
 
 // ==========================================
 // PROVIDER CARD
@@ -315,44 +339,44 @@ const ProviderCard = ({
         />
       )}
 
-      <div className="bg-card border border-border-main rounded-2xl p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-[17px] font-semibold text-card-text">{name}</h3>
+      <div className="bg-card border border-border-main rounded-2xl p-5 shadow-sm">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-[16px] font-semibold text-card-text">{name}</h3>
           {activeKey ? (
-            <span className="flex items-center gap-1.5 text-[12px] font-medium text-accent bg-accent/10 px-3 py-1.5 rounded-full">
-              <CheckCircle2 size={13} /> Active
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-accent bg-accent/10 px-2.5 py-1 rounded-full">
+              <CheckCircle2 size={12} /> Active
             </span>
           ) : (
-            <span className="text-[12px] text-placeholder bg-card-hover px-3 py-1.5 rounded-full">
-              Not configured
+            <span className="text-[11px] text-placeholder bg-card-hover px-2.5 py-1 rounded-full">
+              No key
             </span>
           )}
         </div>
 
         {hasKeys && (
-          <div className="mb-5 space-y-2.5">
+          <div className="mb-4 space-y-2">
             {savedKeys.map((k, i) => (
               <div
                 key={k.id}
-                className="bg-app border border-border-main p-4 rounded-xl"
+                className="bg-app border border-border-main p-3.5 rounded-xl"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <button
                       onClick={() => onActivate(name, k.id)}
                       className={`${k.is_active ? "text-accent" : "text-placeholder hover:text-card-text"} transition-colors`}
                     >
                       {k.is_active ? (
-                        <CheckCircle2 size={18} />
+                        <CheckCircle2 size={17} />
                       ) : (
-                        <Circle size={18} />
+                        <Circle size={17} />
                       )}
                     </button>
-                    <span className="text-[14px] text-card-text font-medium">
+                    <span className="text-[13px] text-card-text font-medium">
                       {k.key_name || `Key ${i + 1}`}
                     </span>
                     {k.is_active && (
-                      <span className="text-[10px] text-accent uppercase tracking-wider font-bold">
+                      <span className="text-[9px] text-accent uppercase tracking-wider font-bold">
                         In Use
                       </span>
                     )}
@@ -363,9 +387,9 @@ const ProviderCard = ({
                         setEditingKeyId(k.id);
                         setEditKeyValue(k.api_key);
                       }}
-                      className="text-[13px] text-placeholder hover:text-card-text flex items-center gap-1.5 transition-colors"
+                      className="text-[12px] text-placeholder hover:text-card-text flex items-center gap-1 transition-colors"
                     >
-                      <Edit2 size={13} /> Edit
+                      <Edit2 size={12} /> Edit
                     </button>
                   )}
                 </div>
@@ -376,20 +400,20 @@ const ProviderCard = ({
                       value={editKeyValue}
                       onChange={(e) => setEditKeyValue(e.target.value)}
                       placeholder="Paste new key (blank to delete)"
-                      className="flex-1 bg-transparent border-b border-border-main pb-1 text-[13px] text-primary outline-none focus:border-accent font-mono"
+                      className="flex-1 bg-transparent border-b border-border-main pb-1 text-[12px] text-primary outline-none focus:border-accent font-mono min-w-0"
                     />
                     <button
                       onClick={() => handleEditSave(k)}
                       disabled={isSaving}
-                      className="px-3 py-1.5 bg-user-bubble text-user-bubble-text rounded-lg text-[12px] font-medium disabled:opacity-50"
+                      className="px-3 py-1.5 bg-user-bubble text-user-bubble-text rounded-lg text-[11px] font-medium disabled:opacity-50 shrink-0"
                     >
                       {isSaving ? "..." : "Save"}
                     </button>
                     <button
                       onClick={() => setEditingKeyId(null)}
-                      className="p-1.5 text-placeholder hover:text-card-text"
+                      className="p-1.5 text-placeholder hover:text-card-text shrink-0"
                     >
-                      <X size={15} />
+                      <X size={14} />
                     </button>
                   </div>
                 )}
@@ -399,26 +423,26 @@ const ProviderCard = ({
         )}
 
         {!hasKeys || isAdding ? (
-          <div className="space-y-3 bg-app p-4 rounded-xl border border-border-main mb-5">
+          <div className="space-y-3 bg-app p-4 rounded-xl border border-border-main mb-4">
             <input
               type="password"
               value={newKeyValue}
               onChange={(e) => setNewKeyValue(e.target.value)}
               placeholder={`Paste your ${name} API key...`}
-              className="w-full bg-transparent border-b border-border-main pb-2 text-[14px] text-primary outline-none focus:border-accent font-mono"
+              className="w-full bg-transparent border-b border-border-main pb-2 text-[13px] text-primary outline-none focus:border-accent font-mono"
             />
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleAdd}
                 disabled={isSaving || !newKeyValue.trim()}
-                className="flex-1 bg-user-bubble text-user-bubble-text py-2 rounded-xl text-[13px] font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+                className="flex-1 bg-user-bubble text-user-bubble-text py-2 rounded-xl text-[12px] font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
               >
                 {isSaving ? "Saving..." : "Save Key"}
               </button>
               {hasKeys && (
                 <button
                   onClick={() => setIsAdding(false)}
-                  className="px-4 py-2 border border-border-main text-placeholder rounded-xl text-[13px] hover:bg-card-hover transition-colors"
+                  className="px-3 py-2 border border-border-main text-placeholder rounded-xl text-[12px] hover:bg-card-hover transition-colors"
                 >
                   Cancel
                 </button>
@@ -428,34 +452,32 @@ const ProviderCard = ({
         ) : (
           <button
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 text-[13px] text-accent hover:underline font-medium mb-5"
+            className="flex items-center gap-1.5 text-[12px] text-accent hover:underline font-medium mb-4"
           >
-            <Plus size={15} /> Add secondary key
+            <Plus size={14} /> Add secondary key
           </button>
         )}
 
-        <div className="pt-5 border-t border-border-main/50">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-[11px] font-bold uppercase tracking-widest text-placeholder">
+        <div className="pt-4 border-t border-border-main/50">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-placeholder">
               Enabled Models
             </h4>
-            {hasFetchConfig &&
-              (activeKey ? (
-                <button
-                  onClick={() => setShowBrowse(true)}
-                  className="flex items-center gap-1.5 text-[13px] text-accent hover:underline font-medium"
-                >
-                  <Package size={13} /> Browse All Models
-                </button>
-              ) : (
-                <span className="text-[12px] text-placeholder">
-                  Add a key to browse models
-                </span>
-              ))}
+            {hasFetchConfig && (
+              <BrowseAllButton
+                onClick={() => setShowBrowse(true)}
+                disabled={!activeKey}
+              />
+            )}
           </div>
+          {!activeKey && hasFetchConfig && (
+            <p className="text-[11px] text-placeholder mb-2 italic">
+              Add a key above to browse all available models.
+            </p>
+          )}
           <div className="space-y-2">
             {allProviderModels.length === 0 ? (
-              <p className="text-[13px] text-placeholder py-1">
+              <p className="text-[12px] text-placeholder py-1">
                 {hasFetchConfig
                   ? "Use Browse All Models to add some."
                   : "No models available."}
@@ -466,32 +488,33 @@ const ProviderCard = ({
                 return (
                   <label
                     key={model.id}
-                    className="flex items-center justify-between p-3.5 bg-app/50 border border-border-main rounded-xl cursor-pointer hover:border-accent/30 transition-all group"
+                    className="flex items-center justify-between p-3 bg-app/50 border border-border-main rounded-xl cursor-pointer hover:border-accent/30 transition-all"
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[14px] font-medium text-card-text">
+                    <div className="flex flex-col gap-0.5 min-w-0 flex-1 mr-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[13px] font-medium text-card-text truncate">
                           {model.name}
                         </span>
                         {model.isFetched && (
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-accent/60 bg-accent/10 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-accent/60 bg-accent/10 px-1.5 py-0.5 rounded-full shrink-0">
                             Custom
                           </span>
                         )}
                       </div>
                       <span
-                        className={`text-[11px] ${isFree ? "text-green-500/80" : "text-orange-400"}`}
+                        className={`text-[10px] ${isFree ? "text-green-500/80" : "text-orange-400"}`}
                       >
                         {model.type}
                       </span>
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={enabledModels.includes(model.id)}
-                      onChange={(e) =>
-                        onModelToggle(model.id, e.target.checked)
+                    <ToggleSwitch
+                      isOn={enabledModels.includes(model.id)}
+                      onToggle={() =>
+                        onModelToggle(
+                          model.id,
+                          !enabledModels.includes(model.id),
+                        )
                       }
-                      className="w-4 h-4 rounded border-border-main accent-accent"
                     />
                   </label>
                 );
@@ -516,29 +539,33 @@ const AccountSection = ({ session }) => {
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
 
+  // Get the full name from Google Auth
+  const authFullName =
+    session?.user?.user_metadata?.full_name ||
+    session?.user?.user_metadata?.name ||
+    "";
+
+  // Default preferred name is the first name
+  const fallbackFirstName = authFullName
+    ? authFullName.split(" ")[0]
+    : session?.user?.email?.split("@")[0] || "User";
+
   useEffect(() => {
     const fetchProfile = async () => {
       if (!session?.user) return;
       try {
-        // Try users table first
         const { data, error } = await supabase
           .from("users")
-          .select("*")
+          .select("nickname")
           .eq("id", session.user.id)
           .single();
 
-        if (!error && data) {
+        if (!error && data && data.nickname) {
           setProfile(data);
-          setNewName(data?.["Display name"] || "");
+          setNewName(data.nickname);
         } else {
-          // Fallback to auth metadata
-          const metaName =
-            session.user.user_metadata?.["Display name"] ||
-            session.user.user_metadata?.full_name ||
-            session.user.user_metadata?.name ||
-            "";
-          setNewName(metaName);
-          setProfile({ "Display name": metaName });
+          setNewName(fallbackFirstName);
+          setProfile({ nickname: fallbackFirstName });
         }
       } catch (e) {
         console.error(e);
@@ -547,7 +574,7 @@ const AccountSection = ({ session }) => {
       }
     };
     fetchProfile();
-  }, [session]);
+  }, [session, fallbackFirstName]);
 
   const handleSaveName = async () => {
     if (!newName.trim() || !session?.user) return;
@@ -555,9 +582,9 @@ const AccountSection = ({ session }) => {
     try {
       await supabase
         .from("users")
-        .update({ "Display name": newName.trim() })
-        .eq("id", session.user.id);
-      setProfile((prev) => ({ ...prev, "Display name": newName.trim() }));
+        .upsert({ id: session.user.id, nickname: newName.trim() });
+
+      setProfile((prev) => ({ ...prev, nickname: newName.trim() }));
       setIsEditingName(false);
       setNameSaved(true);
       setTimeout(() => setNameSaved(false), 2500);
@@ -587,35 +614,49 @@ const AccountSection = ({ session }) => {
       </div>
     );
 
-  const displayName = profile?.["Display name"] || "";
+  const preferredName = profile?.nickname || fallbackFirstName;
+  const displayFullName =
+    authFullName || session?.user?.email?.split("@")[0] || "User";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Profile Card */}
-      <div className="bg-card border border-border-main rounded-2xl p-6">
+      <div className="bg-card border border-border-main rounded-2xl p-5">
         {/* Avatar + Info */}
-        <div className="flex items-center gap-5 mb-7 pb-7 border-b border-border-main">
-          <div className="w-16 h-16 bg-[#2c2a27] dark:bg-[#c2c0b6] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[22px] font-medium shrink-0 select-none">
-            {getInitials(displayName)}
+        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border-main">
+          <div className="w-14 h-14 bg-[#2c2a27] dark:bg-[#c2c0b6] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[18px] font-medium shrink-0 select-none">
+            {getInitials(displayFullName)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[21px] font-semibold text-card-text truncate leading-tight">
-              {displayName || (
-                <span className="text-placeholder font-normal italic text-[18px]">
-                  No name set
-                </span>
-              )}
+            <p className="text-[17px] font-semibold text-card-text truncate leading-tight block">
+              {displayFullName}
             </p>
-            <p className="text-[14px] text-placeholder mt-1">
+            <p className="text-[12px] text-placeholder mt-0.5 truncate block">
               {session?.user?.email}
             </p>
           </div>
         </div>
 
-        {/* Display Name Field */}
+        {/* Read-Only Full Name */}
+        <div className="space-y-2 mb-6">
+          <label className="block text-[11px] font-semibold uppercase tracking-widest text-placeholder">
+            Full Name
+          </label>
+          <div className="px-3 py-2.5 bg-app border border-border-main rounded-xl overflow-hidden flex min-w-0">
+            <span className="text-[14px] text-card-text truncate block w-full">
+              {authFullName || (
+                <span className="text-placeholder italic text-[13px]">
+                  Not provided by auth provider
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+
+        {/* Editable Preferred Name Field */}
         <div className="space-y-2">
-          <label className="block text-[12px] font-semibold uppercase tracking-widest text-placeholder">
-            Display Name
+          <label className="block text-[11px] font-semibold uppercase tracking-widest text-placeholder">
+            What should Lumina call you?
           </label>
           {isEditingName ? (
             <div className="flex gap-2 items-center">
@@ -627,49 +668,45 @@ const AccountSection = ({ session }) => {
                   if (e.key === "Enter") handleSaveName();
                   if (e.key === "Escape") {
                     setIsEditingName(false);
-                    setNewName(displayName);
+                    setNewName(preferredName);
                   }
                 }}
                 autoFocus
-                className="flex-1 bg-app border border-accent rounded-xl px-4 py-2.5 text-[15px] text-card-text outline-none"
+                className="flex-1 min-w-0 bg-app border border-accent rounded-xl px-3 py-2 text-[14px] text-card-text outline-none"
               />
               <button
                 onClick={handleSaveName}
                 disabled={isSavingName || !newName.trim()}
-                className="px-5 py-2.5 bg-accent text-white rounded-xl text-[13px] font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+                className="px-4 py-2 bg-accent text-white rounded-xl text-[12px] font-medium disabled:opacity-50 hover:opacity-90 shrink-0"
               >
                 {isSavingName ? "..." : "Save"}
               </button>
               <button
                 onClick={() => {
                   setIsEditingName(false);
-                  setNewName(displayName);
+                  setNewName(preferredName);
                 }}
-                className="p-2.5 text-placeholder hover:text-card-text hover:bg-card-hover rounded-xl transition-colors"
+                className="p-2 text-placeholder hover:text-card-text hover:bg-card-hover rounded-xl transition-colors shrink-0"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between px-4 py-3 bg-app border border-border-main rounded-xl group">
-              <span className="text-[15px] text-card-text">
-                {displayName || (
-                  <span className="text-placeholder italic text-[14px]">
-                    Not set
-                  </span>
-                )}
+            <div className="flex items-center justify-between px-3 py-2.5 bg-app border border-border-main rounded-xl group">
+              <span className="text-[14px] text-card-text truncate flex-1 pr-2">
+                {preferredName}
               </span>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 shrink-0 ml-2">
                 {nameSaved && (
-                  <span className="flex items-center gap-1.5 text-[12px] text-green-500 animate-in fade-in duration-200">
-                    <Check size={13} /> Saved
+                  <span className="flex items-center gap-1 text-[11px] text-green-500 animate-in fade-in duration-200">
+                    <Check size={12} /> Saved
                   </span>
                 )}
                 <button
                   onClick={() => setIsEditingName(true)}
-                  className="flex items-center gap-1.5 text-[13px] text-placeholder hover:text-card-text transition-colors"
+                  className="flex items-center gap-1 text-[12px] text-placeholder hover:text-card-text transition-colors"
                 >
-                  <Edit2 size={13} /> Edit
+                  <Edit2 size={12} /> Edit
                 </button>
               </div>
             </div>
@@ -677,17 +714,17 @@ const AccountSection = ({ session }) => {
         </div>
       </div>
 
-      {/* Email (read-only) */}
-      <div className="bg-card border border-border-main rounded-2xl p-6">
-        <label className="block text-[12px] font-semibold uppercase tracking-widest text-placeholder mb-3">
+      {/* Email */}
+      <div className="bg-card border border-border-main rounded-2xl p-5">
+        <label className="block text-[11px] font-semibold uppercase tracking-widest text-placeholder mb-2.5">
           Email Address
         </label>
-        <div className="px-4 py-3 bg-app border border-border-main rounded-xl">
-          <span className="text-[15px] text-card-text">
+        <div className="px-3 py-2.5 bg-app border border-border-main rounded-xl overflow-hidden flex min-w-0">
+          <span className="text-[13px] text-card-text truncate block w-full">
             {session?.user?.email}
           </span>
         </div>
-        <p className="text-[12px] text-placeholder mt-2.5 leading-relaxed">
+        <p className="text-[11px] text-placeholder mt-2 leading-relaxed">
           Email is managed by your auth provider and cannot be changed here.
         </p>
       </div>
@@ -695,9 +732,9 @@ const AccountSection = ({ session }) => {
       {/* Sign Out */}
       <button
         onClick={handleSignOut}
-        className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-card border border-border-main rounded-2xl text-[15px] font-medium text-card-text hover:bg-card-hover transition-colors"
+        className="w-full flex items-center justify-center gap-2 py-3 bg-card border border-border-main rounded-2xl text-[14px] font-medium text-card-text hover:bg-card-hover transition-colors"
       >
-        <LogOut size={16} /> Sign out
+        <LogOut size={15} /> Sign out
       </button>
     </div>
   );
@@ -707,20 +744,20 @@ const AccountSection = ({ session }) => {
 // APPEARANCE SECTION
 // ==========================================
 const AppearanceSection = ({ darkMode, onToggleDark }) => (
-  <div className="space-y-5">
-    <div className="bg-card border border-border-main rounded-2xl p-6">
-      <h3 className="text-[16px] font-semibold text-card-text mb-5">Theme</h3>
-      <div className="grid grid-cols-2 gap-4">
+  <div className="space-y-4">
+    <div className="bg-card border border-border-main rounded-2xl p-5">
+      <h3 className="text-[15px] font-semibold text-card-text mb-4">Theme</h3>
+      <div className="grid grid-cols-2 gap-3">
         {[
           {
             id: false,
             label: "Light",
             Icon: Sun,
             preview: (
-              <div className="w-full h-20 rounded-xl bg-[#f5f4f0] border border-[#e0ddd5] flex flex-col gap-2 p-3 overflow-hidden">
-                <div className="w-1/2 h-2 bg-[#2c2a27]/30 rounded-full" />
-                <div className="w-3/4 h-2 bg-[#2c2a27]/15 rounded-full" />
-                <div className="w-2/3 h-2 bg-[#2c2a27]/15 rounded-full" />
+              <div className="w-full h-16 rounded-xl bg-[#f5f4f0] border border-[#e0ddd5] flex flex-col gap-1.5 p-2.5 overflow-hidden">
+                <div className="w-1/2 h-1.5 bg-[#2c2a27]/30 rounded-full" />
+                <div className="w-3/4 h-1.5 bg-[#2c2a27]/15 rounded-full" />
+                <div className="w-2/3 h-1.5 bg-[#2c2a27]/15 rounded-full" />
               </div>
             ),
           },
@@ -729,10 +766,10 @@ const AppearanceSection = ({ darkMode, onToggleDark }) => (
             label: "Dark",
             Icon: Moon,
             preview: (
-              <div className="w-full h-20 rounded-xl bg-[#1a1918] border border-[#2c2a27] flex flex-col gap-2 p-3 overflow-hidden">
-                <div className="w-1/2 h-2 bg-white/25 rounded-full" />
-                <div className="w-3/4 h-2 bg-white/10 rounded-full" />
-                <div className="w-2/3 h-2 bg-white/10 rounded-full" />
+              <div className="w-full h-16 rounded-xl bg-[#1a1918] border border-[#2c2a27] flex flex-col gap-1.5 p-2.5 overflow-hidden">
+                <div className="w-1/2 h-1.5 bg-white/25 rounded-full" />
+                <div className="w-3/4 h-1.5 bg-white/10 rounded-full" />
+                <div className="w-2/3 h-1.5 bg-white/10 rounded-full" />
               </div>
             ),
           },
@@ -740,24 +777,24 @@ const AppearanceSection = ({ darkMode, onToggleDark }) => (
           <button
             key={label}
             onClick={() => onToggleDark(id)}
-            className={`relative flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${darkMode === id ? "border-accent bg-accent/5" : "border-border-main hover:border-border-hover bg-app/40"}`}
+            className={`relative flex flex-col items-center gap-2.5 p-3.5 rounded-2xl border-2 transition-all ${darkMode === id ? "border-accent bg-accent/5" : "border-border-main hover:border-border-hover bg-app/40"}`}
           >
             {preview}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Icon
-                size={15}
+                size={14}
                 className={darkMode === id ? "text-accent" : "text-placeholder"}
               />
               <span
-                className={`text-[14px] font-medium ${darkMode === id ? "text-accent" : "text-placeholder"}`}
+                className={`text-[13px] font-medium ${darkMode === id ? "text-accent" : "text-placeholder"}`}
               >
                 {label}
               </span>
             </div>
             {darkMode === id && (
               <CheckCircle2
-                size={15}
-                className="absolute top-3 right-3 text-accent"
+                size={14}
+                className="absolute top-2.5 right-2.5 text-accent"
               />
             )}
           </button>
@@ -838,10 +875,10 @@ const ModelsSection = () => {
       <div className="animate-in fade-in duration-200">
         <button
           onClick={() => setActiveProvider(null)}
-          className="flex items-center gap-2 text-[13px] font-medium text-placeholder hover:text-card-text transition-colors mb-5 group"
+          className="flex items-center gap-2 text-[13px] font-medium text-placeholder hover:text-card-text transition-colors mb-4 group"
         >
           <ArrowLeft
-            size={15}
+            size={14}
             className="group-hover:-translate-x-0.5 transition-transform"
           />{" "}
           All Providers
@@ -861,18 +898,18 @@ const ModelsSection = () => {
     );
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-4 animate-in fade-in duration-200">
       <div className="relative">
         <Search
-          size={15}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-placeholder"
+          size={14}
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-placeholder"
         />
         <input
           type="text"
           placeholder="Search providers..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-card border border-border-main rounded-xl pl-11 pr-4 py-3 text-[14px] text-card-text outline-none focus:border-accent transition-colors"
+          className="w-full bg-card border border-border-main rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-card-text outline-none focus:border-accent transition-colors"
         />
       </div>
 
@@ -885,28 +922,28 @@ const ModelsSection = () => {
             <button
               key={providerName}
               onClick={() => setActiveProvider(providerName)}
-              className={`w-full flex items-center justify-between px-5 py-4 hover:bg-card-hover transition-colors text-left group ${index !== filteredProviders.length - 1 ? "border-b border-border-main" : ""}`}
+              className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-card-hover transition-colors text-left group ${index !== filteredProviders.length - 1 ? "border-b border-border-main" : ""}`}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-[15px] font-medium text-card-text group-hover:text-card-text-hover">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[14px] font-medium text-card-text group-hover:text-card-text-hover">
                   {providerName}
                 </span>
                 {PROVIDER_FETCH_CONFIG[providerName] && (
-                  <span className="text-[10px] font-medium text-accent/70 bg-accent/10 px-2 py-0.5 rounded-full">
+                  <span className="text-[9px] font-medium text-accent/70 bg-accent/10 px-1.5 py-0.5 rounded-full">
                     Browseable
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 {isConfigured ? (
-                  <span className="text-[13px] text-accent font-medium">
+                  <span className="text-[12px] text-accent font-medium">
                     Active
                   </span>
                 ) : (
-                  <span className="text-[13px] text-placeholder">No key</span>
+                  <span className="text-[12px] text-placeholder">No key</span>
                 )}
                 <ChevronRight
-                  size={16}
+                  size={15}
                   className="text-placeholder group-hover:text-card-text transition-colors"
                 />
               </div>
@@ -915,8 +952,8 @@ const ModelsSection = () => {
         })}
       </div>
 
-      <div className="p-5 bg-accent/5 border border-accent/20 rounded-2xl">
-        <p className="text-[13px] text-placeholder leading-relaxed">
+      <div className="p-4 bg-accent/5 border border-accent/20 rounded-2xl">
+        <p className="text-[12px] text-placeholder leading-relaxed">
           Your API keys are encrypted and stored securely via Supabase RLS. No
           other user can access your keys.
         </p>
@@ -934,51 +971,82 @@ const NAV_ITEMS = [
   { id: "models", label: "Models & APIs", icon: Key },
 ];
 
-// Maps URL path segment → internal section id
 const URL_TO_SECTION = {
   account: "account",
   appearance: "appearance",
   providers: "models",
 };
 
-// Maps internal section id → URL path
 const SECTION_TO_URL = {
   account: "/settings/account",
   appearance: "/settings/appearance",
   models: "/settings/providers",
 };
 
-export const SettingsPage = ({ darkMode, onToggleDark, session }) => {
+export const SettingsPage = ({
+  darkMode,
+  onToggleDark,
+  session,
+  setSidebarOpen,
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Derive active section from the URL — defaults to "account"
-  const urlSegment = location.pathname.split("/settings/")[1]; // e.g. "appearance"
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const urlSegment = location.pathname.split("/settings/")[1];
+  const isRootSettings = !urlSegment;
   const activeSection = URL_TO_SECTION[urlSegment] ?? "account";
+  const activeSectionLabel = NAV_ITEMS.find(
+    (n) => n.id === activeSection,
+  )?.label;
 
-  const goToSection = (id) => navigate(SECTION_TO_URL[id]);
+  const goToSection = (id) => {
+    navigate(SECTION_TO_URL[id]);
+  };
+
+  // Get profile info for mobile hub
+  const displayName =
+    session?.user?.user_metadata?.["Display name"] ||
+    session?.user?.user_metadata?.full_name ||
+    session?.user?.user_metadata?.name ||
+    session?.user?.email?.split("@")[0] ||
+    "User";
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  };
 
   return (
     <div className="w-full h-full flex bg-app overflow-hidden">
-      {/* LEFT SIDEBAR NAV */}
-      <div className="w-64 shrink-0 border-r border-border-main bg-card flex flex-col pt-14 pb-8 px-4">
-        <div className="mb-8 px-2">
+      {/* ── DESKTOP LEFT SIDEBAR ── */}
+      <div className="hidden md:flex w-64 shrink-0 border-r border-border-main bg-card flex-col pt-12 pb-8 px-4 z-10">
+        <div className="mb-6 px-2">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/new")}
             className="flex items-center gap-2 text-[13px] text-placeholder hover:text-card-text transition-colors group mb-7"
           >
             <ArrowLeft
               size={14}
               className="group-hover:-translate-x-0.5 transition-transform"
             />{" "}
-            Back
+            Back to Chat
           </button>
-          <h2 className="text-[24px] font-semibold text-card-text font-serif">
+          <h2 className="text-[28px] font-semibold text-card-text font-serif">
             Settings
           </h2>
         </div>
 
-        <nav className="space-y-1">
+        <nav className="flex flex-col gap-1 overflow-y-auto no-scrollbar">
           {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -990,35 +1058,144 @@ export const SettingsPage = ({ darkMode, onToggleDark, session }) => {
               }`}
             >
               <Icon
-                size={17}
+                size={16}
                 className={
                   activeSection === id ? "text-accent" : "text-placeholder"
                 }
               />
-              <span className="text-[15px]">{label}</span>
+              <span className="text-[14px]">{label}</span>
             </button>
           ))}
         </nav>
       </div>
 
-      {/* RIGHT CONTENT */}
-      <div className="flex-1 overflow-y-auto no-scrollbar">
-        <div className="max-w-2xl mx-auto px-8 pt-14 pb-28">
-          <div className="mb-8">
-            <h1 className="text-[30px] font-semibold text-card-text font-serif">
-              {NAV_ITEMS.find((n) => n.id === activeSection)?.label}
-            </h1>
-          </div>
+      {/* ── CONTENT AREA ── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar relative flex flex-col w-full h-full">
+        {/* MOBILE ROOT SETTINGS HUB */}
+        {isMobile && isRootSettings && (
+          <div className="flex flex-col w-full h-full animate-in fade-in duration-200">
+            {/* Mobile Hub Header */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border-main bg-card shrink-0">
+              <button
+                onClick={() => setSidebarOpen?.(true)}
+                className="p-2 -ml-2 text-placeholder hover:text-card-text transition-colors"
+              >
+                <Menu size={24} />
+              </button>
+              <h2 className="text-[18px] font-semibold text-card-text font-serif">
+                Settings
+              </h2>
+              <div className="w-10" /> {/* Spacer */}
+            </div>
 
-          {activeSection === "account" && <AccountSection session={session} />}
-          {activeSection === "appearance" && (
-            <AppearanceSection
-              darkMode={darkMode}
-              onToggleDark={onToggleDark}
-            />
-          )}
-          {activeSection === "models" && <ModelsSection />}
-        </div>
+            {/* Mobile Hub Content */}
+            <div className="p-4 space-y-4">
+              {/* Profile Card Blob */}
+              <div className="bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
+                <div className="flex items-center gap-4 p-5 border-b border-border-main">
+                  <div className="w-14 h-14 bg-[#2c2a27] dark:bg-[#c2c0b6] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[18px] font-medium shrink-0">
+                    {getInitials(displayName)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[16px] font-semibold text-card-text truncate">
+                      {displayName}
+                    </p>
+                    <p className="text-[12px] text-placeholder truncate mt-0.5">
+                      {session?.user?.email}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => goToSection("account")}
+                  className="w-full flex items-center justify-between p-4 hover:bg-card-hover transition-colors group"
+                >
+                  <div className="flex items-center gap-3 text-card-text group-hover:text-card-text-hover">
+                    <User
+                      size={18}
+                      className="text-placeholder group-hover:text-accent transition-colors"
+                    />
+                    <span className="text-[15px] font-medium">
+                      Account Settings
+                    </span>
+                  </div>
+                  <ChevronRight size={18} className="text-placeholder" />
+                </button>
+              </div>
+
+              {/* Other Navigation Blob */}
+              <div className="bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
+                {NAV_ITEMS.filter((n) => n.id !== "account").map(
+                  (item, idx) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => goToSection(item.id)}
+                        className={`w-full flex items-center justify-between p-4 hover:bg-card-hover transition-colors group ${
+                          idx !== 0 ? "border-t border-border-main" : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 text-card-text group-hover:text-card-text-hover">
+                          <Icon
+                            size={18}
+                            className="text-placeholder group-hover:text-accent transition-colors"
+                          />
+                          <span className="text-[15px] font-medium">
+                            {item.label}
+                          </span>
+                        </div>
+                        <ChevronRight size={18} className="text-placeholder" />
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DETAIL VIEWS (Always shown on Desktop, Only shown on Mobile when NOT on root) */}
+        {(!isMobile || !isRootSettings) && (
+          <div className="max-w-2xl mx-auto w-full px-4 md:px-8 pt-4 md:pt-14 pb-24 animate-in fade-in slide-in-from-right-4 md:slide-in-from-bottom-2 duration-300">
+            {/* Mobile Detail Header with Back Button */}
+            {isMobile && !isRootSettings && (
+              <div className="flex items-center justify-between mb-6">
+                <button
+                  onClick={() => navigate("/settings")}
+                  className="p-2 -ml-2 flex items-center gap-2 text-[14px] font-medium text-placeholder hover:text-card-text transition-colors group"
+                >
+                  <ArrowLeft
+                    size={24}
+                    className="group-hover:-translate-x-0.5 transition-transform"
+                  />{" "}
+                </button>
+                <h1 className="text-[18px] font-semibold text-card-text font-serif">
+                  {activeSectionLabel}
+                </h1>
+                <div className="w-10" /> {/* Spacer */}
+              </div>
+            )}
+
+            {/* Desktop Section Title */}
+            <div className="hidden md:block mb-8">
+              <h1 className="text-[30px] font-semibold text-card-text font-serif">
+                {activeSectionLabel}
+              </h1>
+            </div>
+
+            {/* Content Injection */}
+            {activeSection === "account" && (
+              <AccountSection session={session} />
+            )}
+            {activeSection === "appearance" && (
+              <AppearanceSection
+                darkMode={darkMode}
+                onToggleDark={onToggleDark}
+              />
+            )}
+            {activeSection === "models" && <ModelsSection />}
+          </div>
+        )}
       </div>
     </div>
   );

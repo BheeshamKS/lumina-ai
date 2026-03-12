@@ -123,3 +123,30 @@ export const deleteMessagesAfterTimestamp = async (chatId, timestamp) => {
     console.error("Error deleting orphaned messages:", error);
   }
 };
+
+export const searchConversations = async (searchQuery = "") => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const currentUserId = session ? session.user.id : getOrCreateGuestId();
+
+  // Changed to .select('*') and .range() to match your working getConversations function!
+  let query = supabase
+    .from('conversations')
+    .select('*')
+    .eq('user_id', currentUserId)
+    .eq('is_archived', false)
+    .order('created_at', { ascending: false })
+    .range(0, 29); 
+
+  if (searchQuery && searchQuery.trim().length > 0) {
+    query = query.ilike('title', `%${searchQuery.trim()}%`);
+  }
+
+  const { data, error } = await query;
+  
+  if (error) {
+    console.error("Search DB error:", error.message);
+    return [];
+  }
+  
+  return data || [];
+};

@@ -146,7 +146,11 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
 
   useEffect(() => {
     if (textAreaRef.current) {
-      const minHeight = messages.length === 0 ? 60 : 44;
+      const isMobile = window.innerWidth < 768;
+
+      // Format: isMobile ? MobileHeight : DesktopHeight
+      const minHeight = isMobile ? 44 : messages.length === 0 ? 60 : 44;
+
       textAreaRef.current.style.height = "auto";
       const newHeight = Math.max(textAreaRef.current.scrollHeight, minHeight);
       textAreaRef.current.style.height = newHeight + "px";

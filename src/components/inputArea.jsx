@@ -91,8 +91,8 @@ export const InputArea = ({
     <div
       className={
         messagesLength === 0
-          ? "w-full max-w-3xl flex-1 flex flex-col justify-end md:justify-center px-4 md:px-8 mx-auto pb-8 md:pb-0"
-          : "w-full max-w-4xl absolute bottom-0 left-1/2 -translate-x-1/2 px-3 md:px-4 pb-4 md:pb-6 pt-4 bg-gradient-to-t from-app via-app to-transparent z-20"
+          ? "w-full max-w-[740px] flex-1 flex flex-col justify-end md:justify-center px-4 md:px-8 mx-auto pb-8 md:pb-0"
+          : "w-full max-w-[790px] absolute bottom-0 left-1/2 -translate-x-1/2 px-3 md:px-4 pb-4 md:pb-6 pt-4 bg-gradient-to-t from-app via-app to-transparent z-20"
       }
     >
       <div className="relative w-full">
@@ -120,7 +120,8 @@ export const InputArea = ({
               messagesLength === 0 ? "How can I help you today?" : "Reply..."
             }
             rows="1"
-            className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[15px] md:text-[16px] font-sans leading-normal text-outputmassage placeholder-placeholder max-h-100 ${messagesLength === 0 ? "min-h-14 md:min-h-15" : "min-h-10"}`}
+            className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[15px] md:text-[16px] font-sans leading-normal text-outputmassage placeholder-placeholder max-h-100 
+              ${messagesLength === 0 ? "min-h-10 md:min-h-15" : "min-h-10 md:min-h-10"}`}
           />
 
           <div className="flex justify-between items-center mt-1 px-1">

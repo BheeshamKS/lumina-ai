@@ -177,7 +177,7 @@ export const ChatAreaBase = ({
       </div>
 
       {messages.length > 0 && (
-        <div className="w-full max-w-3xl px-4 space-y-10">
+        <div className="w-full max-w-[750px] px-4 space-y-10">
           {isLoadingOlder && (
             <div className="flex justify-center py-4">
               <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-sidebar-ring"></div>

@@ -101,7 +101,7 @@ export const InputArea = ({
           <div className="fixed md:absolute top-[40%] md:top-auto md:bottom-full left-1/2 md:left-0 -translate-x-1/2 md:translate-x-0 w-full mb-8 md:mb-10 text-center px-4 -translate-y-1/2 md:translate-y-0 pointer-events-none">
             <Logo className="w-9 h-9 md:w-11 md:h-11 mx-auto mb-3 md:mb-4" />
             <h1
-              className="text-3xl md:text-[40px] font-normal text-card-text tracking-tight leading-tight"
+              className="text-[25px] md:text-[40px] font-bold md:font-normal  text-card-text tracking-tight leading-tight"
               style={{ fontFamily: "Copernicus, Georgia, serif" }}
             >
               {greeting}
@@ -139,7 +139,7 @@ export const InputArea = ({
               {isPlusMenuOpen && (
                 <div className="absolute bottom-full left-0 mb-2 w-48 bg-bgDropDown border border-bgDropDownBorder rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                   <div className="p-1.5">
-                    <button
+                    <div
                       onClick={() => {
                         setIsWebSearchEnabled(!isWebSearchEnabled);
                       }}
@@ -162,7 +162,7 @@ export const InputArea = ({
                           setIsWebSearchEnabled(!isWebSearchEnabled)
                         }
                       />
-                    </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -185,7 +185,7 @@ export const InputArea = ({
                 </div>
 
                 {isMenuOpen && (
-                  <div className="absolute bottom-full right-0 sm:left-auto sm:right-0 mb-2 w-[calc(100vw-2.5rem)] sm:w-64 bg-bgDropDown border border-bgDropDownBorder rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="fixed bottom-20 right-3 left-3 sm:absolute sm:bottom-full sm:right-0 sm:left-auto sm:w-64 mb-2 bg-bgDropDown border border-bgDropDownBorder rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                     <div className="max-h-72 overflow-y-auto p-1.5 space-y-2 no-scrollbar">
                       {availableProviders.length > 0 ? (
                         availableProviders.map((group) => (

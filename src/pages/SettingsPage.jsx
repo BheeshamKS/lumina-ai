@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   User,
@@ -57,6 +57,10 @@ const BrowseModelsPopup = ({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [hasFetched, setHasFetched] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const [dragY, setDragY] = useState(0);
+  const touchStartY = useRef(null);
 
   const config = PROVIDER_FETCH_CONFIG[providerName];
 
@@ -106,12 +110,50 @@ const BrowseModelsPopup = ({
     return matchSearch && matchFilter;
   });
 
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsClosing(false);
+      onClose();
+    }, 300);
+  };
+
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    if (touchStartY.current === null) return;
+    const diff = e.touches[0].clientY - touchStartY.current;
+    if (diff > 0) setDragY(diff);
+  };
+
+  const handleTouchEnd = () => {
+    if (dragY > 150) handleClose();
+    setDragY(0);
+    touchStartY.current = null;
+  };
+
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && onClose()}
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-200"
     >
-      <div className="bg-card border border-border-main rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[82vh] animate-in slide-in-from-bottom-4 duration-300">
+      <div
+        className="bg-card border border-border-main rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[82vh] animate-in slide-in-from-bottom-4 duration-300"
+        style={{
+          transform: `translateY(${isClosing ? "100%" : `${dragY}px`})`,
+          transition:
+            dragY > 0 ? "none" : "transform 300ms cubic-bezier(0.4,0,0.2,1)",
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+          <div className="w-10 h-1 rounded-full bg-border-hover" />
+        </div>
+
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border-main shrink-0">
           <div>
             <h3 className="text-[17px] font-semibold text-card-text">
@@ -135,7 +177,7 @@ const BrowseModelsPopup = ({
               />
             </button>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="p-2 rounded-lg text-placeholder hover:text-card-text hover:bg-card-hover transition-colors"
             >
               <X size={17} />

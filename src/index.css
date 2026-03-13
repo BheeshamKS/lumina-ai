@@ -56,6 +56,15 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Copernicus';
+  src: url('./fonts/CopernicusTrial-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: bold;
+  font-display: swap;
+}
+
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {

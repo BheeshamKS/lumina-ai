@@ -152,7 +152,7 @@ export const ChatAreaBase = ({
         <div className="flex items-center gap-3 pointer-events-auto">
           <button
             onClick={onOpenSidebar}
-            className="md:hidden text-placeholder hover:text-card-text transition-colors"
+            className="md:hidden text-placeholder hover:text-card-text p-2 -ml-2 transition-colors"
           >
             <Menu size={24} />
           </button>
@@ -168,7 +168,7 @@ export const ChatAreaBase = ({
           <div className="pointer-events-auto md:hidden">
             <button
               onClick={onNewChat}
-              className="text-placeholder hover:text-card-text transition-colors flex items-center"
+              className="text-placeholder hover:text-card-text p-2 -ml-2 transition-colors flex items-center"
             >
               <SquarePen size={24} />
             </button>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getUserConfiguredProviders } from "../utils/apiKeys";
+import { getUserConfiguredProviders, getActiveApiKey } from "../utils/apiKeys";
 import { supabase } from "../utils/supabase";
 import {
   MODEL_REGISTRY,
@@ -13,6 +13,8 @@ import { ChatArea } from "../components/chatArea";
 import { InputArea } from "../components/inputArea";
 import { AuthModal } from "../components/authModal";
 import { OnboardingModal } from "../components/onboardingModal";
+import { VoiceKeyModal } from "../components/voiceKeyModal";
+import { VoiceRecordingIndicator } from "../components/voiceRecordingIndicator";
 import {
   createConversation,
   saveMessage,
@@ -33,18 +35,230 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
   const [messages, setMessages] = useState([]);
   const [chatTitle, setChatTitle] = useState("");
   const [isLoading, setIsLoading] = useState(!!chatId);
-
   const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(true);
-
   const [guestPromptCount, setGuestPromptCount] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showVoiceKeyModal, setShowVoiceKeyModal] = useState(false);
+  const [preferredName, setPreferredName] = useState(null);
 
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const [playingMessageIdx, setPlayingMessageIdx] = useState(null);
+  const [lastMessageWasVoice, setLastMessageWasVoice] = useState(false);
+  const [groqKey, setGroqKey] = useState(null);
+
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const streamRef = useRef(null);
+  const audioRef = useRef(null);
+  const groqKeyRef = useRef(null);
   const textAreaRef = useRef(null);
   const prevSessionRef = useRef(session);
   const chatEndRef = useRef(null);
   const isCreatingChat = useRef(false);
 
-  const [preferredName, setPreferredName] = useState(null);
+  const loadKey = async () => {
+    if (!session) return;
+    const key = await getActiveApiKey("Groq");
+    console.log("loadKey fetched:", key);
+    if (key) {
+      setGroqKey(key);
+      groqKeyRef.current = key;
+    }
+  };
+
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "audio/mp4";
+    const mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorderRef.current = mediaRecorder;
+    audioChunksRef.current = [];
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunksRef.current.push(e.data);
+    };
+    mediaRecorder.start(100);
+    setIsRecording(true);
+  };
+
+  const stopRecordingAndTranscribe = () => {
+    return new Promise((resolve) => {
+      const mediaRecorder = mediaRecorderRef.current;
+      if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        resolve(null);
+        return;
+      }
+      mediaRecorder.onstop = async () => {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+        setIsRecording(false);
+        setIsTranscribing(true);
+        try {
+          const mimeType = mediaRecorder.mimeType || "audio/webm";
+          const audioBlob = new Blob(audioChunksRef.current, {
+            type: mimeType,
+          });
+          const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+
+          // Call Groq directly from browser — no proxy needed
+          const formData = new FormData();
+          formData.append("file", audioBlob, `recording.${extension}`);
+          formData.append("model", "whisper-large-v3");
+          formData.append("response_format", "json");
+
+          const response = await fetch(
+            "https://api.groq.com/openai/v1/audio/transcriptions",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${groqKeyRef.current}`,
+              },
+              body: formData,
+            },
+          );
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error?.message || "Transcription failed");
+          }
+
+          const data = await response.json();
+          const text = data.text?.trim();
+          if (text) {
+            setInput(text);
+            setLastMessageWasVoice(true);
+            setTimeout(() => textAreaRef.current?.focus(), 50);
+          }
+          resolve(text || null);
+        } catch (err) {
+          console.error("Transcription error:", err);
+          resolve(null);
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+      mediaRecorder.stop();
+    });
+  };
+
+  const speakText = async (text, idx) => {
+    if (!text?.trim() || !groqKey) return;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    const plainText = text
+      .replace(/```[\s\S]*?```/g, "[code block]")
+      .replace(/`[^`]+`/g, "")
+      .replace(/#{1,6}\s+/g, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^\d+\.\s+/gm, "")
+      .trim()
+      .slice(0, 4000);
+    setIsPlayingTTS(true);
+    setPlayingMessageIdx(idx);
+    try {
+      const response = await fetch(
+        "https://api.groq.com/openai/v1/audio/speech",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${groqKeyRef.current}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "playai-tts",
+            input: plainText,
+            voice: "Celeste-PlayAI",
+            response_format: "mp3",
+          }),
+        },
+      );
+      if (!response.ok) throw new Error("TTS failed");
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        setIsPlayingTTS(false);
+        setPlayingMessageIdx(null);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        setIsPlayingTTS(false);
+        setPlayingMessageIdx(null);
+      };
+      await audio.play();
+    } catch (err) {
+      console.error("TTS error:", err);
+      setIsPlayingTTS(false);
+      setPlayingMessageIdx(null);
+    }
+  };
+
+  const stopTTS = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlayingTTS(false);
+    setPlayingMessageIdx(null);
+  };
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      await stopRecordingAndTranscribe();
+      return;
+    }
+    if (isTranscribing) return;
+    if (!session) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    // Always fetch fresh at click time — don't rely on cached state
+    const freshKey = await getActiveApiKey("Groq");
+    if (!freshKey) {
+      setShowVoiceKeyModal(true);
+      return;
+    }
+    groqKeyRef.current = freshKey;
+    setGroqKey(freshKey);
+
+    try {
+      await startRecording();
+    } catch (err) {
+      console.error("Mic error:", err);
+      alert(
+        "Could not access microphone. Please allow microphone permission and try again.",
+      );
+    }
+  };
+
+  const handleSpeakMessage = async (text, idx) => {
+    if (isPlayingTTS && playingMessageIdx === idx) {
+      stopTTS();
+      return;
+    }
+    if (!groqKey) {
+      setShowVoiceKeyModal(true);
+      return;
+    }
+    await speakText(text, idx);
+  };
 
   useEffect(() => {
     const fetchPreferredName = async () => {
@@ -54,9 +268,7 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         .select("nickname")
         .eq("id", session.user.id)
         .single();
-      if (data && data.nickname) {
-        setPreferredName(data.nickname);
-      }
+      if (data?.nickname) setPreferredName(data.nickname);
     };
     fetchPreferredName();
   }, [session]);
@@ -74,13 +286,11 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
     "";
   const baseFirstName = authFullName ? authFullName.split(" ")[0] : null;
   const finalName = preferredName || baseFirstName;
-
   const greeting = finalName ? `${timeGreeting}, ${finalName}` : timeGreeting;
 
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [isCheckingKeys, setIsCheckingKeys] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-
   const [messagePage, setMessagePage] = useState(0);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
@@ -90,24 +300,19 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
     setIsModelsLoading(true);
     try {
       let configuredProviders = [];
-      if (session) {
-        configuredProviders = await getUserConfiguredProviders();
-      }
+      if (session) configuredProviders = await getUserConfiguredProviders();
       const enabledIds = await getEnabledModels();
       const guestModel = MODEL_REGISTRY.find((m) => m.isGuestModel);
-
       if (!session) {
         setAvailableModels([guestModel]);
         setActiveModel(guestModel);
         return;
       }
-
       const finalList = MODEL_REGISTRY.filter((m) => {
         if (m.isGuestModel) return false;
         if (!enabledIds.includes(m.id)) return false;
         return configuredProviders.includes(m.provider);
       });
-
       setAvailableModels(finalList);
       setActiveModel((prev) => {
         const stillAvailable = prev && finalList.some((m) => m.id === prev.id);
@@ -122,64 +327,16 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
     }
   }, [session]);
 
-  // 2. Separate effect that just calls it
   useEffect(() => {
     loadEnabledModels();
   }, [loadEnabledModels]);
-
-  useEffect(() => {
-    const loadEnabledModels = async () => {
-      setIsModelsLoading(true);
-      try {
-        let configuredProviders = [];
-        if (session) {
-          configuredProviders = await getUserConfiguredProviders();
-        }
-
-        const enabledIds = await getEnabledModels();
-        const guestModel = MODEL_REGISTRY.find((m) => m.isGuestModel);
-
-        if (!session) {
-          setAvailableModels([guestModel]);
-          setActiveModel(guestModel);
-          setIsModelsLoading(false);
-          return;
-        }
-
-        const finalList = MODEL_REGISTRY.filter((m) => {
-          if (m.isGuestModel) return false;
-          if (!enabledIds.includes(m.id)) return false;
-          return configuredProviders.includes(m.provider);
-        });
-
-        setAvailableModels(finalList);
-
-        setActiveModel((prev) => {
-          const stillAvailable =
-            prev && finalList.some((m) => m.id === prev.id);
-          if (stillAvailable) return prev;
-          return finalList.length > 0 ? finalList[0] : null;
-        });
-      } catch (error) {
-        console.error("Error loading models:", error);
-        setAvailableModels([GUEST_DEFAULT_MODEL]);
-        setActiveModel(GUEST_DEFAULT_MODEL);
-      } finally {
-        setIsModelsLoading(false);
-      }
-    };
-
-    loadEnabledModels();
-  }, [session]);
 
   useEffect(() => {
     const checkKeys = async () => {
       if (session) {
         const providers = await getUserConfiguredProviders();
         setNeedsOnboarding(providers.length === 0);
-      } else {
-        setNeedsOnboarding(false);
-      }
+      } else setNeedsOnboarding(false);
       setIsCheckingKeys(false);
     };
     checkKeys();
@@ -188,13 +345,10 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
   useEffect(() => {
     if (textAreaRef.current) {
       const isMobile = window.innerWidth < 768;
-
-      // Format: isMobile ? MobileHeight : DesktopHeight
       const minHeight = isMobile ? 44 : messages.length === 0 ? 60 : 44;
-
       textAreaRef.current.style.height = "auto";
-      const newHeight = Math.max(textAreaRef.current.scrollHeight, minHeight);
-      textAreaRef.current.style.height = newHeight + "px";
+      textAreaRef.current.style.height =
+        Math.max(textAreaRef.current.scrollHeight, minHeight) + "px";
     }
   }, [input, messages.length]);
 
@@ -217,17 +371,14 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
           setIsLoading(true);
           return;
         }
-
         if (isCreatingChat.current) {
           isCreatingChat.current = false;
           setIsLoading(false);
           return;
         }
-
         setMessagePage(0);
         const history = await getChatMessages(chatId, 0, MESSAGES_PER_PAGE);
         const fetchedTitle = await getConversationTitle(chatId);
-
         setHasMoreMessages(history.length === MESSAGES_PER_PAGE);
         setMessages(history);
         setChatTitle(fetchedTitle);
@@ -236,7 +387,6 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         setIsLoading(false);
       }
     };
-
     loadChat();
     window.addEventListener("migrationComplete", loadChat);
     return () => window.removeEventListener("migrationComplete", loadChat);
@@ -244,7 +394,6 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
 
   const loadOlderMessages = async () => {
     if (isLoadingOlder || !hasMoreMessages || !chatId) return;
-
     setIsLoadingOlder(true);
     const nextPage = messagePage + 1;
     const olderMessages = await getChatMessages(
@@ -252,50 +401,40 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
       nextPage,
       MESSAGES_PER_PAGE,
     );
-
     if (olderMessages.length > 0) {
       const container = document.querySelector(".overflow-y-auto");
       const scrollHeightBefore = container?.scrollHeight || 0;
-
       setMessages((prev) => [...olderMessages, ...prev]);
       setMessagePage(nextPage);
-
       requestAnimationFrame(() => {
-        if (container) {
-          const scrollHeightAfter = container.scrollHeight;
-          container.scrollTop = scrollHeightAfter - scrollHeightBefore;
-        }
+        if (container)
+          container.scrollTop = container.scrollHeight - scrollHeightBefore;
       });
     }
-
-    if (olderMessages.length < MESSAGES_PER_PAGE) {
-      setHasMoreMessages(false);
-    }
-
+    if (olderMessages.length < MESSAGES_PER_PAGE) setHasMoreMessages(false);
     setIsLoadingOlder(false);
   };
 
   useEffect(() => {
     const wasLoggedIn = !!prevSessionRef.current;
     const isNowLoggedIn = !!session;
-
     if (wasLoggedIn && !isNowLoggedIn) {
       navigate("/", { replace: true });
       setMessages([]);
       setChatTitle("");
     }
-
     prevSessionRef.current = session;
   }, [session]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-
     if (!session && guestPromptCount >= 2) {
       setShowAuthModal(true);
       return;
     }
 
+    const wasVoice = lastMessageWasVoice;
+    setLastMessageWasVoice(false);
     const userText = input.trim();
     setInput("");
 
@@ -309,22 +448,15 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
     try {
       let currentChatId = chatId;
       const isFirstMessage = messages.length === 0 && !chatId;
-
       if (isFirstMessage) {
         isCreatingChat.current = true;
         currentChatId = Math.random().toString(36).substring(2, 11);
         await createConversation(currentChatId);
         navigate(`/chat/${currentChatId}`, { replace: true });
       }
+      if (currentChatId) saveMessage(currentChatId, "user", userText);
 
-      if (currentChatId) {
-        saveMessage(currentChatId, "user", userText);
-      }
-
-      const MAX_CONTEXT = 20;
-      const recentMessages = newMessages.slice(-MAX_CONTEXT);
-
-      const messagesForRouter = recentMessages.map((msg) => ({
+      const messagesForRouter = newMessages.slice(-20).map((msg) => ({
         role: msg.role === "ai" ? "assistant" : "user",
         content: msg.content,
       }));
@@ -335,38 +467,36 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         isWebSearchEnabled,
       );
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          content: responseText,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      setMessages((prev) => {
+        const updated = [
+          ...prev,
+          {
+            role: "ai",
+            content: responseText,
+            created_at: new Date().toISOString(),
+          },
+        ];
+        if (wasVoice && groqKey) speakText(responseText, updated.length - 1);
+        return updated;
+      });
 
       if (currentChatId) {
         saveMessage(currentChatId, "ai", responseText);
-        if (isFirstMessage) {
+        if (isFirstMessage)
           generateBackgroundTitle(
             currentChatId,
             userText,
             activeModel,
             session,
-          ).then((title) => {
-            if (title) setChatTitle(title);
+          ).then((t) => {
+            if (t) setChatTitle(t);
           });
-        }
       }
-
-      if (!session) {
-        setGuestPromptCount((prev) => prev + 1);
-      }
+      if (!session) setGuestPromptCount((prev) => prev + 1);
     } catch (error) {
-      console.error("Error:", error);
       const errorMessage = error.message || "";
       const isQuotaExceeded =
         errorMessage.includes("429") || errorMessage.includes("quota");
-
       setMessages((prev) => [
         ...prev,
         {
@@ -389,7 +519,6 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
   };
 
   const [copiedMessageId, setCopiedMessageId] = useState(null);
-
   const handleCopy = (text, messageId) => {
     navigator.clipboard.writeText(text);
     setCopiedMessageId(messageId);
@@ -402,37 +531,27 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
       .reverse()
       .findIndex((m) => m.role === "user");
     if (lastUserMsgIndex === -1) return;
-
     const actualIndex = messages.length - 1 - lastUserMsgIndex;
     const lastUserMessage = messages[actualIndex].content;
     const previousMessages = messages.slice(0, actualIndex);
-
     setMessages([
       ...previousMessages,
       { role: "user", content: lastUserMessage },
     ]);
     setIsLoading(true);
-
     try {
-      const MAX_CONTEXT = 10;
-      const recentPreviousMessages = previousMessages.slice(-(MAX_CONTEXT - 1));
-
-      const messagesForRouter = recentPreviousMessages.map((msg) => ({
+      const messagesForRouter = previousMessages.slice(-9).map((msg) => ({
         role: msg.role === "ai" ? "assistant" : "user",
         content: msg.content,
       }));
       messagesForRouter.push({ role: "user", content: lastUserMessage });
-
       const responseText = await sendMessageToLLM(
         messagesForRouter,
         activeModel.id,
         isWebSearchEnabled,
       );
       setMessages((prev) => [...prev, { role: "ai", content: responseText }]);
-
-      if (session && chatId) {
-        saveMessage(chatId, "ai", responseText);
-      }
+      if (session && chatId) saveMessage(chatId, "ai", responseText);
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -445,10 +564,8 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
 
   const handleEditSubmit = async (index, newText) => {
     if (isLoading || !newText.trim()) return;
-
     const editedMessageTimestamp = messages[index].created_at;
     const previousMessages = messages.slice(0, index);
-
     const updatedMessages = [
       ...previousMessages,
       {
@@ -457,10 +574,8 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         created_at: new Date().toISOString(),
       },
     ];
-
     setMessages(updatedMessages);
     setIsLoading(true);
-
     try {
       if (session && chatId && editedMessageTimestamp) {
         await import("../utils/chatHistory").then((m) =>
@@ -468,20 +583,15 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         );
         await saveMessage(chatId, "user", newText.trim());
       }
-
-      const MAX_CONTEXT = 20;
-      const recentMessages = updatedMessages.slice(-MAX_CONTEXT);
-      const messagesForRouter = recentMessages.map((msg) => ({
+      const messagesForRouter = updatedMessages.slice(-20).map((msg) => ({
         role: msg.role === "ai" ? "assistant" : "user",
         content: msg.content,
       }));
-
       const responseText = await sendMessageToLLM(
         messagesForRouter,
         activeModel.id,
         isWebSearchEnabled,
       );
-
       setMessages((prev) => [
         ...prev,
         {
@@ -490,10 +600,7 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
           created_at: new Date().toISOString(),
         },
       ]);
-
-      if (session && chatId) {
-        await saveMessage(chatId, "ai", responseText);
-      }
+      if (session && chatId) await saveMessage(chatId, "ai", responseText);
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -521,6 +628,10 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         onEdit={handleEditSubmit}
         onOpenSidebar={onOpenSidebar}
         onNewChat={() => navigate("/new")}
+        onSpeakMessage={session ? handleSpeakMessage : null}
+        isPlayingTTS={isPlayingTTS}
+        playingMessageIdx={playingMessageIdx}
+        onStopTTS={stopTTS}
       />
 
       <InputArea
@@ -538,12 +649,36 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         onOpenAuth={() => setShowAuthModal(true)}
         isWebSearchEnabled={isWebSearchEnabled}
         setIsWebSearchEnabled={setIsWebSearchEnabled}
+        isRecording={isRecording}
+        isTranscribing={isTranscribing}
+        onMicClick={handleMicClick}
+      />
+
+      <VoiceRecordingIndicator
+        isRecording={isRecording}
+        isTranscribing={isTranscribing}
+        onStop={stopRecordingAndTranscribe}
       />
 
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      <VoiceKeyModal
+        isOpen={showVoiceKeyModal}
+        onClose={() => setShowVoiceKeyModal(false)}
+        onSuccess={async () => {
+          setShowVoiceKeyModal(false);
+          const key = await getActiveApiKey("Groq");
+          if (key) {
+            setGroqKey(key);
+            groqKeyRef.current = key;
+            setTimeout(() => handleMicClick(), 300);
+          }
+        }}
+      />
+
       <OnboardingModal
         isOpen={
           !!session &&
@@ -556,9 +691,7 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
           setHasCompletedOnboarding(true);
           const providers = await getUserConfiguredProviders();
           setNeedsOnboarding(providers.length === 0);
-          if (providers.length > 0) {
-            await loadEnabledModels(); // call directly, no setTimeout needed
-          }
+          if (providers.length > 0) await loadEnabledModels();
         }}
       />
     </>
@@ -573,22 +706,12 @@ const generateBackgroundTitle = async (
 ) => {
   try {
     await new Promise((resolve) => setTimeout(resolve, 1000));
-
     const provider = activeModel?.provider || "OpenRouter";
     const modelId = activeModel?.id || "openrouter/auto";
-
-    const prompt = `Based on this user message: "${firstMessage}", create a descriptive title.
-                    REQUIREMENTS: 
-                    - Length: 3 to 6 words.
-                    - Tone: Professional and clear.
-                    - Format: Plain text only, no quotes, no labels.
-                    Example: React Components with Tailwind`;
-
+    const prompt = `Based on this user message: "${firstMessage}", create a descriptive title.\nREQUIREMENTS:\n- Length: 3 to 6 words.\n- Tone: Professional and clear.\n- Format: Plain text only, no quotes, no labels.\nExample: React Components with Tailwind`;
     const headers = { "Content-Type": "application/json" };
-    if (session?.access_token) {
+    if (session?.access_token)
       headers["Authorization"] = `Bearer ${session.access_token}`;
-    }
-
     const response = await fetch("/api/chat", {
       method: "POST",
       headers,
@@ -599,15 +722,12 @@ const generateBackgroundTitle = async (
         isWebSearchEnabled: false,
       }),
     });
-
     if (!response.ok) throw new Error("Title generation failed");
-
     const data = await response.json();
     let newTitle = data.text
       .trim()
       .replace(/[*"']/g, "")
       .replace(/^Title:\s*/i, "");
-
     await updateConversationTitle(chatId, newTitle);
     return newTitle;
   } catch (err) {

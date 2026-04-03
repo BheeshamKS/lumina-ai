@@ -10,6 +10,8 @@ import {
   Coffee,
   Check,
   Globe,
+  Mic,
+  Square,
 } from "lucide-react";
 import { ToggleSwitch } from "./toggleSwitch";
 
@@ -38,6 +40,10 @@ export const InputArea = ({
   onOpenAuth,
   isWebSearchEnabled,
   setIsWebSearchEnabled,
+  // Voice props
+  isRecording,
+  onMicClick,
+  isTranscribing,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
@@ -55,13 +61,13 @@ export const InputArea = ({
 
   const availableProviders = Object.values(groupedModels);
   const isGuest = !session;
+  const hasInput = input.trim().length > 0;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setIsMenuOpen(false);
       }
-
       if (plusMenuRef.current && !plusMenuRef.current.contains(event.target)) {
         setIsPlusMenuOpen(false);
       }
@@ -87,6 +93,60 @@ export const InputArea = ({
     textAreaRef?.current?.focus();
   };
 
+  // Determine what the right-side action button shows
+  const renderActionButton = () => {
+    // If currently recording — show stop button (pulsing red)
+    if (isRecording) {
+      return (
+        <button
+          onClick={onMicClick}
+          title="Stop recording"
+          className="p-1.5 rounded-lg transition-all relative"
+        >
+          {/* Pulsing ring */}
+          <span className="absolute inset-0 rounded-lg bg-red-500/20 animate-ping" />
+          <Square
+            size={15}
+            className="text-red-500 fill-red-500 relative z-10"
+          />
+        </button>
+      );
+    }
+
+    // If transcribing — show spinner
+    if (isTranscribing) {
+      return (
+        <button disabled className="p-1.5 rounded-lg opacity-60">
+          <div className="w-[15px] h-[15px] border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        </button>
+      );
+    }
+
+    // If input has text — show send button
+    if (hasInput) {
+      return (
+        <button
+          onClick={handleSend}
+          title="Send message"
+          className="p-1.5 bg-accent rounded-lg text-white hover:opacity-90 transition-opacity cursor-pointer"
+        >
+          <ArrowRight size={15} />
+        </button>
+      );
+    }
+
+    // Default — mic button (voice mode)
+    return (
+      <button
+        onClick={onMicClick}
+        title="Start voice input"
+        className="p-1.5 bg-app hover:bg-card-hover rounded-lg text-accent transition-colors"
+      >
+        <Mic size={15} />
+      </button>
+    );
+  };
+
   return (
     <div
       className={
@@ -101,11 +161,40 @@ export const InputArea = ({
           <div className="fixed md:absolute top-[40%] md:top-auto md:bottom-full left-1/2 md:left-0 -translate-x-1/2 md:translate-x-0 w-full mb-8 md:mb-10 text-center px-4 -translate-y-1/2 md:translate-y-0 pointer-events-none">
             <Logo className="w-9 h-9 md:w-11 md:h-11 mx-auto mb-3 md:mb-4" />
             <h1
-              className="text-[25px] md:text-[40px] font-bold md:font-normal  text-card-text tracking-tight leading-tight"
+              className="text-[25px] md:text-[40px] font-bold md:font-normal text-card-text tracking-tight leading-tight"
               style={{ fontFamily: "Copernicus, Georgia, serif" }}
             >
               {greeting}
             </h1>
+          </div>
+        )}
+
+        {/* Recording status banner — shown above input when recording */}
+        {isRecording && (
+          <div className="flex items-center justify-center gap-2 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <span className="flex gap-0.5 items-end h-4">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <span
+                  key={i}
+                  className="w-0.5 bg-accent rounded-full animate-pulse"
+                  style={{
+                    height: `${[8, 14, 10, 16, 8][i]}px`,
+                    animationDelay: `${i * 0.1}s`,
+                  }}
+                />
+              ))}
+            </span>
+            <span className="text-[12px] font-medium text-accent">
+              Recording… tap stop when done
+            </span>
+          </div>
+        )}
+
+        {isTranscribing && (
+          <div className="flex items-center justify-center gap-2 mb-2 animate-in fade-in duration-200">
+            <span className="text-[12px] text-placeholder animate-pulse">
+              Transcribing…
+            </span>
           </div>
         )}
 
@@ -117,18 +206,25 @@ export const InputArea = ({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              messagesLength === 0 ? "How can I help you today?" : "Reply..."
+              isRecording
+                ? "Recording…"
+                : messagesLength === 0
+                  ? "How can I help you today?"
+                  : "Reply..."
             }
             rows="1"
+            disabled={isRecording || isTranscribing}
             className={`w-full bg-transparent resize-none outline-none px-2 pt-2 text-[15px] md:text-[16px] font-sans leading-normal text-outputmassage placeholder-placeholder max-h-100 
-              ${messagesLength === 0 ? "min-h-10 md:min-h-15" : "min-h-10 md:min-h-10"}`}
+              ${messagesLength === 0 ? "min-h-10 md:min-h-15" : "min-h-10 md:min-h-10"}
+              ${isRecording || isTranscribing ? "opacity-50 cursor-not-allowed" : ""}`}
           />
 
           <div className="flex justify-between items-center mt-1 px-1">
             <div className="relative" ref={plusMenuRef}>
               <button
                 onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
-                className="p-2 hover:bg-card-hover rounded-full text-card-text hover:text-card-text-hover transition-colors"
+                disabled={isRecording || isTranscribing}
+                className="p-2 hover:bg-card-hover rounded-full text-card-text hover:text-card-text-hover transition-colors disabled:opacity-40"
               >
                 <Plus
                   size={19}
@@ -140,9 +236,7 @@ export const InputArea = ({
                 <div className="absolute bottom-full left-0 mb-2 w-48 bg-bgDropDown border border-bgDropDownBorder rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                   <div className="p-1.5">
                     <div
-                      onClick={() => {
-                        setIsWebSearchEnabled(!isWebSearchEnabled);
-                      }}
+                      onClick={() => setIsWebSearchEnabled(!isWebSearchEnabled)}
                       className="w-full flex items-center justify-between px-2.5 py-2 text-[13px] text-card-text hover:bg-card-hover hover:text-card-text-hover rounded-lg transition-colors text-left"
                     >
                       <div className="flex items-center gap-2.5">
@@ -172,8 +266,12 @@ export const InputArea = ({
               {/* MODEL SELECTOR */}
               <div className="relative" ref={menuRef}>
                 <div
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="flex items-center gap-1 cursor-pointer hover:text-card-text-hover transition-colors px-2 py-1 rounded-md hover:bg-card-hover"
+                  onClick={() =>
+                    !isRecording &&
+                    !isTranscribing &&
+                    setIsMenuOpen(!isMenuOpen)
+                  }
+                  className={`flex items-center gap-1 cursor-pointer hover:text-card-text-hover transition-colors px-2 py-1 rounded-md hover:bg-card-hover ${isRecording || isTranscribing ? "opacity-40 pointer-events-none" : ""}`}
                 >
                   <span className="truncate max-w-[90px] md:max-w-[120px] text-[11px] md:text-[12px]">
                     {activeModel?.name || "Loading..."}
@@ -251,18 +349,8 @@ export const InputArea = ({
 
               <div className="w-px h-3 bg-border-main" />
 
-              {input.trim() ? (
-                <button
-                  onClick={handleSend}
-                  className="p-1.5 bg-accent rounded-lg text-white hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  <ArrowRight size={15} />
-                </button>
-              ) : (
-                <button className="p-1.5 bg-app hover:bg-card-hover rounded-lg text-accent transition-colors">
-                  <Logo size={15} className="w-[15px] h-[15px]" />
-                </button>
-              )}
+              {/* Dynamic action button: mic / stop / spinner / send */}
+              {renderActionButton()}
             </div>
           </div>
         </div>
@@ -273,7 +361,7 @@ export const InputArea = ({
           </div>
         )}
 
-        {messagesLength === 0 && input.trim() === "" && (
+        {messagesLength === 0 && input.trim() === "" && !isRecording && (
           <div className="hidden md:flex absolute top-full left-0 w-full flex-wrap justify-center gap-2 pt-6 md:pt-8 animate-in fade-in duration-300">
             {[
               { icon: <PenLine size={14} />, label: "Write" },

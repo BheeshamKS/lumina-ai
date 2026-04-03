@@ -7,6 +7,9 @@ import {
   PenLine,
   Menu,
   SquarePen,
+  Volume2,
+  VolumeX,
+  Loader2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./codeBlock";
@@ -29,6 +32,10 @@ export const ChatAreaBase = ({
   onEdit,
   onOpenSidebar,
   onNewChat,
+  // TTS props
+  onSpeak,
+  speakingMessageId,
+  isSpeakingLoading,
 }) => {
   const [feedbackState, setFeedbackState] = useState({});
   const [editingIdx, setEditingIdx] = useState(null);
@@ -133,6 +140,21 @@ export const ChatAreaBase = ({
     });
   };
 
+  // Strip markdown for TTS (speak plain text)
+  const stripMarkdown = (text) => {
+    return text
+      .replace(/```[\s\S]*?```/g, "[code block]")
+      .replace(/`[^`]+`/g, "")
+      .replace(/#{1,6}\s+/g, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^\d+\.\s+/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  };
+
   return (
     <div
       className={`w-full flex flex-col items-center relative ${
@@ -146,9 +168,8 @@ export const ChatAreaBase = ({
       }}
       style={{ overflowAnchor: "auto" }}
     >
-      {/* HEADER - ALWAYS RENDERED */}
+      {/* HEADER */}
       <div className="sticky top-0 z-30 w-full flex items-center justify-between bg-gradient-to-b from-app from-[60%] to-transparent pt-4 pb-8 px-5 md:pt-6 md:pb-10 md:px-8 pointer-events-none">
-        {/* LEFT SIDE */}
         <div className="flex items-center gap-3 pointer-events-auto">
           <button
             onClick={onOpenSidebar}
@@ -156,14 +177,11 @@ export const ChatAreaBase = ({
           >
             <Menu size={24} />
           </button>
-
-          {/* Chat Title is hidden on mobile */}
           <h3 className="hidden md:block text-[14px] font-medium text-card-text min-h-[20px]">
             {messages.length > 0 ? chatTitle || "Untitled" : ""}
           </h3>
         </div>
 
-        {/* RIGHT SIDE (Mobile only New Chat Button - Only show if in a chat) */}
         {messages.length > 0 && (
           <div className="pointer-events-auto md:hidden">
             <button
@@ -192,6 +210,8 @@ export const ChatAreaBase = ({
               const isLastMessage = idx === messages.length - 1;
               const isLastUserMessage = idx === lastUserIndex;
               const messageId = `msg-${idx}`;
+              const isSpeaking = speakingMessageId === messageId;
+              const isSpeakLoading = isSpeakingLoading === messageId;
 
               return (
                 <div key={idx} className="flex flex-col w-full group/message">
@@ -399,8 +419,13 @@ export const ChatAreaBase = ({
                               {responseText}
                             </ReactMarkdown>
 
+                            {/* Action bar */}
                             <div
-                              className={`mt-4 flex items-center gap-2 transition-opacity duration-200 ${isLastMessage ? "opacity-100" : "opacity-0 group-hover/message:opacity-100"}`}
+                              className={`mt-4 flex items-center gap-2 transition-opacity duration-200 ${
+                                isLastMessage
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover/message:opacity-100"
+                              }`}
                             >
                               <button
                                 onClick={() =>
@@ -419,7 +444,11 @@ export const ChatAreaBase = ({
                               <button
                                 onClick={() => handleFeedback(idx, "up")}
                                 title="Good response"
-                                className={`p-1.5 rounded-md transition-colors ${feedbackState[idx] === "up" ? "text-accent bg-accent/10" : "text-placeholder hover:text-card-text hover:bg-card-hover"}`}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  feedbackState[idx] === "up"
+                                    ? "text-accent bg-accent/10"
+                                    : "text-placeholder hover:text-card-text hover:bg-card-hover"
+                                }`}
                               >
                                 <ThumbsUp
                                   size={15}
@@ -434,7 +463,11 @@ export const ChatAreaBase = ({
                               <button
                                 onClick={() => handleFeedback(idx, "down")}
                                 title="Bad response"
-                                className={`p-1.5 rounded-md transition-colors ${feedbackState[idx] === "down" ? "text-red-500 bg-red-500/10" : "text-placeholder hover:text-card-text hover:bg-card-hover"}`}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  feedbackState[idx] === "down"
+                                    ? "text-red-500 bg-red-500/10"
+                                    : "text-placeholder hover:text-card-text hover:bg-card-hover"
+                                }`}
                               >
                                 <ThumbsDown
                                   size={15}
@@ -455,7 +488,41 @@ export const ChatAreaBase = ({
                                   <RotateCcw size={14} />
                                 </button>
                               )}
+
+                              {/* TTS speaker button */}
+                              {onSpeak && (
+                                <button
+                                  onClick={() =>
+                                    onSpeak(
+                                      stripMarkdown(responseText),
+                                      messageId,
+                                    )
+                                  }
+                                  title={
+                                    isSpeaking ? "Stop speaking" : "Read aloud"
+                                  }
+                                  className={`p-1.5 rounded-md transition-colors ${
+                                    isSpeaking
+                                      ? "text-accent bg-accent/10"
+                                      : isSpeakLoading
+                                        ? "text-placeholder"
+                                        : "text-placeholder hover:text-card-text hover:bg-card-hover"
+                                  }`}
+                                >
+                                  {isSpeakLoading ? (
+                                    <Loader2
+                                      size={15}
+                                      className="animate-spin"
+                                    />
+                                  ) : isSpeaking ? (
+                                    <VolumeX size={15} />
+                                  ) : (
+                                    <Volume2 size={15} />
+                                  )}
+                                </button>
+                              )}
                             </div>
+
                             {isLastMessage && (
                               <div>
                                 <Logo className="w-8 h-8 mt-5 mb-10" />
@@ -495,6 +562,8 @@ export const ChatArea = memo(ChatAreaBase, (prevProps, nextProps) => {
     prevProps.isLoading === nextProps.isLoading &&
     prevProps.isLoadingOlder === nextProps.isLoadingOlder &&
     prevProps.copiedMessageId === nextProps.copiedMessageId &&
-    prevProps.darkMode === nextProps.darkMode
+    prevProps.darkMode === nextProps.darkMode &&
+    prevProps.speakingMessageId === nextProps.speakingMessageId &&
+    prevProps.isSpeakingLoading === nextProps.isSpeakingLoading
   );
 });

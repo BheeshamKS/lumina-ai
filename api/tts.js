@@ -26,10 +26,10 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "playai-tts",
+        model: "canopylabs/orpheus-v1-english",
         input: text.slice(0, 4000),
-        voice: "Celeste-PlayAI",
-        response_format: "mp3",
+        voice: "diana",
+        response_format: "wav",
       }),
     });
 
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     }
 
     const audioBuffer = await groqResponse.arrayBuffer();
-    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Type", "audio/wav");
     res.setHeader("Content-Length", audioBuffer.byteLength);
     return res.status(200).end(Buffer.from(audioBuffer));
   } catch (err) {

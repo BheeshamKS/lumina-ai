@@ -43,8 +43,8 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
 
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [isPlayingTTS, setIsPlayingTTS] = useState(false);
-  const [playingMessageIdx, setPlayingMessageIdx] = useState(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState(null);
+  const [isSpeakingLoading, setIsSpeakingLoading] = useState(null);
   const [lastMessageWasVoice, setLastMessageWasVoice] = useState(false);
   const [groqKey, setGroqKey] = useState(null);
 
@@ -52,6 +52,7 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
   const audioChunksRef = useRef([]);
   const streamRef = useRef(null);
   const audioRef = useRef(null);
+  const ttsAbortRef = useRef(null);
   const groqKeyRef = useRef(null);
   const textAreaRef = useRef(null);
   const prevSessionRef = useRef(session);
@@ -61,7 +62,6 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
   const loadKey = async () => {
     if (!session) return;
     const key = await getActiveApiKey("Groq");
-    console.log("loadKey fetched:", key);
     if (key) {
       setGroqKey(key);
       groqKeyRef.current = key;
@@ -148,12 +148,19 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
     });
   };
 
-  const speakText = async (text, idx) => {
-    if (!text?.trim() || !groqKey) return;
+  const speakText = async (text, messageId) => {
+    if (!text?.trim() || !groqKeyRef.current) return;
+
+    // Cancel any in-flight TTS request
+    if (ttsAbortRef.current) {
+      ttsAbortRef.current.abort();
+      ttsAbortRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
+
     const plainText = text
       .replace(/```[\s\S]*?```/g, "[code block]")
       .replace(/`[^`]+`/g, "")
@@ -165,57 +172,74 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
       .replace(/^\d+\.\s+/gm, "")
       .trim()
       .slice(0, 4000);
-    setIsPlayingTTS(true);
-    setPlayingMessageIdx(idx);
+
+    setIsSpeakingLoading(messageId);
+    setSpeakingMessageId(null);
+
+    const controller = new AbortController();
+    ttsAbortRef.current = controller;
+
     try {
-      const response = await fetch(
-        "https://api.groq.com/openai/v1/audio/speech",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${groqKeyRef.current}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "playai-tts",
-            input: plainText,
-            voice: "Celeste-PlayAI",
-            response_format: "mp3",
-          }),
+      const response = await fetch("https://api.groq.com/openai/v1/audio/speech", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${groqKeyRef.current}`,
+          "Content-Type": "application/json",
         },
-      );
-      if (!response.ok) throw new Error("TTS failed");
+        body: JSON.stringify({
+          model: "canopylabs/orpheus-v1-english",
+          input: plainText,
+          voice: "diana",
+          response_format: "wav",
+        }),
+      });
+
+      ttsAbortRef.current = null;
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || err.error || `TTS failed: ${response.status}`);
+      }
+
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
+
+      setIsSpeakingLoading(null);
+      setSpeakingMessageId(messageId);
+
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
         audioRef.current = null;
-        setIsPlayingTTS(false);
-        setPlayingMessageIdx(null);
+        setSpeakingMessageId(null);
       };
       audio.onerror = () => {
         URL.revokeObjectURL(audioUrl);
         audioRef.current = null;
-        setIsPlayingTTS(false);
-        setPlayingMessageIdx(null);
+        setSpeakingMessageId(null);
       };
       await audio.play();
     } catch (err) {
+      if (err.name === "AbortError") return;
       console.error("TTS error:", err);
-      setIsPlayingTTS(false);
-      setPlayingMessageIdx(null);
+      setIsSpeakingLoading(null);
+      setSpeakingMessageId(null);
     }
   };
 
   const stopTTS = () => {
+    if (ttsAbortRef.current) {
+      ttsAbortRef.current.abort();
+      ttsAbortRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    setIsPlayingTTS(false);
-    setPlayingMessageIdx(null);
+    setSpeakingMessageId(null);
+    setIsSpeakingLoading(null);
   };
 
   const handleMicClick = async () => {
@@ -248,17 +272,26 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
     }
   };
 
-  const handleSpeakMessage = async (text, idx) => {
-    if (isPlayingTTS && playingMessageIdx === idx) {
+  const handleSpeakMessage = async (text, messageId) => {
+    if (speakingMessageId === messageId || isSpeakingLoading === messageId) {
       stopTTS();
       return;
     }
-    if (!groqKey) {
-      setShowVoiceKeyModal(true);
-      return;
+    if (!groqKeyRef.current) {
+      const freshKey = await getActiveApiKey("Groq");
+      if (!freshKey) {
+        setShowVoiceKeyModal(true);
+        return;
+      }
+      groqKeyRef.current = freshKey;
+      setGroqKey(freshKey);
     }
-    await speakText(text, idx);
+    await speakText(text, messageId);
   };
+
+  useEffect(() => {
+    loadKey();
+  }, [session]);
 
   useEffect(() => {
     const fetchPreferredName = async () => {
@@ -467,18 +500,16 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         isWebSearchEnabled,
       );
 
-      setMessages((prev) => {
-        const updated = [
-          ...prev,
-          {
-            role: "ai",
-            content: responseText,
-            created_at: new Date().toISOString(),
-          },
-        ];
-        if (wasVoice && groqKey) speakText(responseText, updated.length - 1);
-        return updated;
-      });
+      const aiMessageId = `msg-${newMessages.length}`;
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content: responseText,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      if (wasVoice && groqKeyRef.current) speakText(responseText, aiMessageId);
 
       if (currentChatId) {
         saveMessage(currentChatId, "ai", responseText);
@@ -628,10 +659,9 @@ export const ChatPage = ({ darkMode, session, onOpenSidebar }) => {
         onEdit={handleEditSubmit}
         onOpenSidebar={onOpenSidebar}
         onNewChat={() => navigate("/new")}
-        onSpeakMessage={session ? handleSpeakMessage : null}
-        isPlayingTTS={isPlayingTTS}
-        playingMessageIdx={playingMessageIdx}
-        onStopTTS={stopTTS}
+        onSpeak={session ? handleSpeakMessage : null}
+        speakingMessageId={speakingMessageId}
+        isSpeakingLoading={isSpeakingLoading}
       />
 
       <InputArea

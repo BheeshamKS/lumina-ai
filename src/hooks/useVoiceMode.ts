@@ -1,21 +1,25 @@
 import { useState, useRef, useCallback } from "react";
 import { getActiveApiKey } from "../utils/apiKeys";
 
-export const useVoiceMode = ({ onTranscribed, onTTSEnd }) => {
+interface UseVoiceModeOptions {
+  onTranscribed: (text: string) => void;
+  onTTSEnd?: () => void;
+}
+
+export const useVoiceMode = ({ onTranscribed, onTTSEnd }: UseVoiceModeOptions) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
 
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const audioRef = useRef(null);
-  const streamRef = useRef(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  const getGroqKey = async () => {
+  const getGroqKey = async (): Promise<string | null> => {
     return await getActiveApiKey("Groq");
   };
 
-  // ── Start Recording ──────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     streamRef.current = stream;
@@ -38,8 +42,7 @@ export const useVoiceMode = ({ onTranscribed, onTTSEnd }) => {
     setIsRecording(true);
   }, []);
 
-  // ── Stop Recording & Transcribe ──────────────────────────────────────────────
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback((): Promise<string | null> => {
     return new Promise((resolve, reject) => {
       const mediaRecorder = mediaRecorderRef.current;
       if (!mediaRecorder || mediaRecorder.state === "inactive") {
@@ -48,7 +51,6 @@ export const useVoiceMode = ({ onTranscribed, onTTSEnd }) => {
       }
 
       mediaRecorder.onstop = async () => {
-        // Stop mic tracks
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
 
@@ -63,24 +65,21 @@ export const useVoiceMode = ({ onTranscribed, onTTSEnd }) => {
           const groqKey = await getGroqKey();
           if (!groqKey) throw new Error("NO_GROQ_KEY");
 
-          // Send key in header — much more reliable than multipart field parsing
           const formData = new FormData();
           formData.append("file", audioBlob, `recording.${extension}`);
 
           const response = await fetch("/api/transcribe", {
             method: "POST",
-            headers: {
-              "x-groq-key": groqKey,
-            },
+            headers: { "x-groq-key": groqKey },
             body: formData,
           });
 
           if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
+            const err = await response.json().catch(() => ({})) as { error?: string };
             throw new Error(err.error || "Transcription failed");
           }
 
-          const data = await response.json();
+          const data = await response.json() as { text?: string };
           const text = data.text?.trim();
           if (text) onTranscribed(text);
           resolve(text || null);
@@ -95,8 +94,7 @@ export const useVoiceMode = ({ onTranscribed, onTTSEnd }) => {
     });
   }, [onTranscribed]);
 
-  // ── TTS ──────────────────────────────────────────────────────────────────────
-  const speakText = useCallback(async (text) => {
+  const speakText = useCallback(async (text: string) => {
     if (!text?.trim()) return;
 
     if (audioRef.current) {
@@ -120,7 +118,7 @@ export const useVoiceMode = ({ onTranscribed, onTTSEnd }) => {
 
     if (!response.ok) {
       setIsPlayingTTS(false);
-      const err = await response.json().catch(() => ({}));
+      const err = await response.json().catch(() => ({})) as { error?: string };
       throw new Error(err.error || "TTS failed");
     }
 

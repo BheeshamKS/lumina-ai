@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import type { Session } from "@supabase/supabase-js";
+import type { LucideIcon } from "lucide-react";
 import {
   User,
   Palette,
@@ -39,10 +41,20 @@ import {
   saveFetchedModel,
   removeFetchedModel,
 } from "../utils/models";
+import type { ApiKeyRecord, ModelEntry, UserProfile } from "../types";
 
 // ==========================================
 // BROWSE MODELS POPUP
 // ==========================================
+interface BrowseModelsPopupProps {
+  providerName: string;
+  activeKey: string;
+  enabledModels: string[];
+  onModelToggle: (id: string, checked: boolean) => void;
+  onClose: () => void;
+  onModelFetched: (model: ModelEntry) => void;
+}
+
 const BrowseModelsPopup = ({
   providerName,
   activeKey,
@@ -50,17 +62,17 @@ const BrowseModelsPopup = ({
   onModelToggle,
   onClose,
   onModelFetched,
-}) => {
-  const [fetchedModels, setFetchedModels] = useState([]);
+}: BrowseModelsPopupProps) => {
+  const [fetchedModels, setFetchedModels] = useState<ModelEntry[]>([]);
   const [isFetching, setIsFetching] = useState(false);
-  const [fetchError, setFetchError] = useState(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [hasFetched, setHasFetched] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
   const [dragY, setDragY] = useState(0);
-  const touchStartY = useRef(null);
+  const touchStartY = useRef<number | null>(null);
 
   const config = PROVIDER_FETCH_CONFIG[providerName];
 
@@ -81,7 +93,7 @@ const BrowseModelsPopup = ({
       setFetchedModels(config.parseModels(data));
       setHasFetched(true);
     } catch (err) {
-      setFetchError(err.message || "Failed to fetch models.");
+      setFetchError(err instanceof Error ? err.message : "Failed to fetch models.");
     } finally {
       setIsFetching(false);
     }
@@ -89,9 +101,10 @@ const BrowseModelsPopup = ({
 
   useEffect(() => {
     if (config && activeKey) handleFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleToggle = async (model, checked) => {
+  const handleToggle = async (model: ModelEntry, checked: boolean) => {
     if (checked) {
       await saveFetchedModel(model);
       onModelFetched(model);
@@ -118,11 +131,11 @@ const BrowseModelsPopup = ({
     }, 300);
   };
 
-  const handleTouchStart = (e) => {
+  const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
   };
 
-  const handleTouchMove = (e) => {
+  const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartY.current === null) return;
     const diff = e.touches[0].clientY - touchStartY.current;
     if (diff > 0) setDragY(diff);
@@ -171,10 +184,7 @@ const BrowseModelsPopup = ({
               disabled={isFetching}
               className="p-2 rounded-lg text-placeholder hover:text-card-text hover:bg-card-hover transition-colors disabled:opacity-50"
             >
-              <RefreshCw
-                size={16}
-                className={isFetching ? "animate-spin" : ""}
-              />
+              <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
             </button>
             <button
               onClick={handleClose}
@@ -187,10 +197,7 @@ const BrowseModelsPopup = ({
 
         <div className="px-4 py-3 border-b border-border-main shrink-0 space-y-2">
           <div className="relative">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-placeholder"
-            />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-placeholder" />
             <input
               type="text"
               value={search}
@@ -226,10 +233,7 @@ const BrowseModelsPopup = ({
           ) : fetchError ? (
             <div className="p-6 text-center">
               <p className="text-[13px] text-red-400 mb-3">{fetchError}</p>
-              <button
-                onClick={handleFetch}
-                className="text-[12px] text-accent hover:underline"
-              >
+              <button onClick={handleFetch} className="text-[12px] text-accent hover:underline">
                 Try again
               </button>
             </div>
@@ -253,9 +257,7 @@ const BrowseModelsPopup = ({
                     <span className="text-[10px] font-mono text-placeholder truncate">
                       {model.id}
                     </span>
-                    <span
-                      className={`text-[10px] font-medium mt-0.5 ${isFree ? "text-green-500/80" : "text-orange-400"}`}
-                    >
+                    <span className={`text-[10px] font-medium mt-0.5 ${isFree ? "text-green-500/80" : "text-orange-400"}`}>
                       {model.type}
                     </span>
                   </div>
@@ -282,7 +284,12 @@ const BrowseModelsPopup = ({
 // ==========================================
 // BROWSE ALL MODELS BUTTON
 // ==========================================
-const BrowseAllButton = ({ onClick, disabled }) => (
+interface BrowseAllButtonProps {
+  onClick: () => void;
+  disabled: boolean;
+}
+
+const BrowseAllButton = ({ onClick, disabled }: BrowseAllButtonProps) => (
   <button
     onClick={onClick}
     disabled={disabled}
@@ -295,10 +302,7 @@ const BrowseAllButton = ({ onClick, disabled }) => (
     <Package size={14} className="shrink-0" />
     <span>Browse All Models</span>
     {!disabled && (
-      <ExternalLink
-        size={12}
-        className="opacity-60 group-hover:opacity-100 transition-opacity"
-      />
+      <ExternalLink size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
     )}
   </button>
 );
@@ -306,6 +310,18 @@ const BrowseAllButton = ({ onClick, disabled }) => (
 // ==========================================
 // PROVIDER CARD
 // ==========================================
+interface ProviderCardProps {
+  name: string;
+  savedKeys: ApiKeyRecord[];
+  onRefresh: () => void;
+  onActivate: (provider: string, keyId: string) => void;
+  enabledModels: string[];
+  onModelToggle: (id: string, checked: boolean) => void;
+  allModels: ModelEntry[];
+  fetchedModels: ModelEntry[];
+  onModelFetched: (model: ModelEntry) => void;
+}
+
 const ProviderCard = ({
   name,
   savedKeys,
@@ -316,11 +332,11 @@ const ProviderCard = ({
   allModels,
   fetchedModels,
   onModelFetched,
-}) => {
+}: ProviderCardProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [editingKeyId, setEditingKeyId] = useState(null);
+  const [editingKeyId, setEditingKeyId] = useState<string | null>(null);
   const [editKeyValue, setEditKeyValue] = useState("");
   const [showBrowse, setShowBrowse] = useState(false);
 
@@ -353,7 +369,7 @@ const ProviderCard = ({
     }
   };
 
-  const handleEditSave = async (k) => {
+  const handleEditSave = async (k: ApiKeyRecord) => {
     setIsSaving(true);
     try {
       if (!editKeyValue.trim()) await deleteApiKey(k.id);
@@ -398,10 +414,7 @@ const ProviderCard = ({
         {hasKeys && (
           <div className="mb-4 space-y-2">
             {savedKeys.map((k, i) => (
-              <div
-                key={k.id}
-                className="bg-app border border-border-main p-3.5 rounded-xl"
-              >
+              <div key={k.id} className="bg-app border border-border-main p-3.5 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <button
@@ -543,19 +556,14 @@ const ProviderCard = ({
                           </span>
                         )}
                       </div>
-                      <span
-                        className={`text-[10px] ${isFree ? "text-green-500/80" : "text-orange-400"}`}
-                      >
+                      <span className={`text-[10px] ${isFree ? "text-green-500/80" : "text-orange-400"}`}>
                         {model.type}
                       </span>
                     </div>
                     <ToggleSwitch
                       isOn={enabledModels.includes(model.id)}
                       onToggle={() =>
-                        onModelToggle(
-                          model.id,
-                          !enabledModels.includes(model.id),
-                        )
+                        onModelToggle(model.id, !enabledModels.includes(model.id))
                       }
                     />
                   </label>
@@ -572,22 +580,24 @@ const ProviderCard = ({
 // ==========================================
 // ACCOUNT SECTION
 // ==========================================
-const AccountSection = ({ session }) => {
+interface AccountSectionProps {
+  session: Session;
+}
+
+const AccountSection = ({ session }: AccountSectionProps) => {
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
 
-  // Get the full name from Google Auth
   const authFullName =
     session?.user?.user_metadata?.full_name ||
     session?.user?.user_metadata?.name ||
     "";
 
-  // Default preferred name is the first name
   const fallbackFirstName = authFullName
     ? authFullName.split(" ")[0]
     : session?.user?.email?.split("@")[0] || "User";
@@ -602,9 +612,9 @@ const AccountSection = ({ session }) => {
           .eq("id", session.user.id)
           .single();
 
-        if (!error && data && data.nickname) {
-          setProfile(data);
-          setNewName(data.nickname);
+        if (!error && data && (data as UserProfile).nickname) {
+          setProfile(data as UserProfile);
+          setNewName((data as UserProfile).nickname!);
         } else {
           setNewName(fallbackFirstName);
           setProfile({ nickname: fallbackFirstName });
@@ -626,7 +636,7 @@ const AccountSection = ({ session }) => {
         .from("users")
         .upsert({ id: session.user.id, nickname: newName.trim() });
 
-      setProfile((prev) => ({ ...prev, nickname: newName.trim() }));
+      setProfile((prev) => ({ ...(prev ?? {}), nickname: newName.trim() }));
       setIsEditingName(false);
       setNameSaved(true);
       setTimeout(() => setNameSaved(false), 2500);
@@ -642,7 +652,7 @@ const AccountSection = ({ session }) => {
     navigate("/new");
   };
 
-  const getInitials = (name) => {
+  const getInitials = (name: string) => {
     if (!name) return "?";
     const parts = name.trim().split(" ");
     if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
@@ -662,9 +672,7 @@ const AccountSection = ({ session }) => {
 
   return (
     <div className="space-y-4">
-      {/* Profile Card */}
       <div className="bg-card border border-border-main rounded-2xl p-5">
-        {/* Avatar + Info */}
         <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border-main">
           <div className="w-14 h-14 bg-[#2c2a27] dark:bg-[#c2c0b6] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[18px] font-medium shrink-0 select-none">
             {getInitials(displayFullName)}
@@ -679,7 +687,6 @@ const AccountSection = ({ session }) => {
           </div>
         </div>
 
-        {/* Read-Only Full Name */}
         <div className="space-y-2 mb-6">
           <label className="block text-[11px] font-semibold uppercase tracking-widest text-placeholder">
             Full Name
@@ -695,7 +702,6 @@ const AccountSection = ({ session }) => {
           </div>
         </div>
 
-        {/* Editable Preferred Name Field */}
         <div className="space-y-2">
           <label className="block text-[11px] font-semibold uppercase tracking-widest text-placeholder">
             What should Lumina call you?
@@ -756,7 +762,6 @@ const AccountSection = ({ session }) => {
         </div>
       </div>
 
-      {/* Email */}
       <div className="bg-card border border-border-main rounded-2xl p-5">
         <label className="block text-[11px] font-semibold uppercase tracking-widest text-placeholder mb-2.5">
           Email Address
@@ -771,7 +776,6 @@ const AccountSection = ({ session }) => {
         </p>
       </div>
 
-      {/* Sign Out */}
       <button
         onClick={handleSignOut}
         className="w-full flex items-center justify-center gap-2 py-3 bg-card border border-border-main rounded-2xl text-[14px] font-medium text-card-text hover:bg-card-hover transition-colors"
@@ -785,16 +789,21 @@ const AccountSection = ({ session }) => {
 // ==========================================
 // APPEARANCE SECTION
 // ==========================================
-const AppearanceSection = ({ darkMode, onToggleDark }) => (
+interface AppearanceSectionProps {
+  darkMode: boolean;
+  onToggleDark: (val: boolean) => void;
+}
+
+const AppearanceSection = ({ darkMode, onToggleDark }: AppearanceSectionProps) => (
   <div className="space-y-4">
     <div className="bg-card border border-border-main rounded-2xl p-5">
       <h3 className="text-[15px] font-semibold text-card-text mb-4">Theme</h3>
       <div className="grid grid-cols-2 gap-3">
         {[
           {
-            id: false,
+            id: false as boolean,
             label: "Light",
-            Icon: Sun,
+            Icon: Sun as LucideIcon,
             preview: (
               <div className="w-full h-16 rounded-xl bg-[#f5f4f0] border border-[#e0ddd5] flex flex-col gap-1.5 p-2.5 overflow-hidden">
                 <div className="w-1/2 h-1.5 bg-[#2c2a27]/30 rounded-full" />
@@ -804,9 +813,9 @@ const AppearanceSection = ({ darkMode, onToggleDark }) => (
             ),
           },
           {
-            id: true,
+            id: true as boolean,
             label: "Dark",
-            Icon: Moon,
+            Icon: Moon as LucideIcon,
             preview: (
               <div className="w-full h-16 rounded-xl bg-[#1a1918] border border-[#2c2a27] flex flex-col gap-1.5 p-2.5 overflow-hidden">
                 <div className="w-1/2 h-1.5 bg-white/25 rounded-full" />
@@ -823,21 +832,13 @@ const AppearanceSection = ({ darkMode, onToggleDark }) => (
           >
             {preview}
             <div className="flex items-center gap-1.5">
-              <Icon
-                size={14}
-                className={darkMode === id ? "text-accent" : "text-placeholder"}
-              />
-              <span
-                className={`text-[13px] font-medium ${darkMode === id ? "text-accent" : "text-placeholder"}`}
-              >
+              <Icon size={14} className={darkMode === id ? "text-accent" : "text-placeholder"} />
+              <span className={`text-[13px] font-medium ${darkMode === id ? "text-accent" : "text-placeholder"}`}>
                 {label}
               </span>
             </div>
             {darkMode === id && (
-              <CheckCircle2
-                size={14}
-                className="absolute top-2.5 right-2.5 text-accent"
-              />
+              <CheckCircle2 size={14} className="absolute top-2.5 right-2.5 text-accent" />
             )}
           </button>
         ))}
@@ -850,12 +851,12 @@ const AppearanceSection = ({ darkMode, onToggleDark }) => (
 // MODELS & APIS SECTION
 // ==========================================
 const ModelsSection = () => {
-  const [keys, setKeys] = useState([]);
+  const [keys, setKeys] = useState<ApiKeyRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [enabledModelIds, setEnabledModelIds] = useState([]);
-  const [fetchedModels, setFetchedModels] = useState([]);
+  const [enabledModelIds, setEnabledModelIds] = useState<string[]>([]);
+  const [fetchedModels, setFetchedModels] = useState<ModelEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeProvider, setActiveProvider] = useState(null);
+  const [activeProvider, setActiveProvider] = useState<string | null>(null);
 
   const uniqueProviders = [...new Set(MODEL_REGISTRY.map((m) => m.provider))];
   const filteredProviders = uniqueProviders.filter((p) =>
@@ -879,20 +880,20 @@ const ModelsSection = () => {
     fetchData();
   }, []);
 
-  const handleModelToggle = async (modelId, isChecked) => {
+  const handleModelToggle = async (modelId: string, isChecked: boolean) => {
     setEnabledModelIds((prev) =>
       isChecked ? [...prev, modelId] : prev.filter((id) => id !== modelId),
     );
     await toggleModelEnabled(modelId, isChecked);
   };
 
-  const handleModelFetched = (model) => {
+  const handleModelFetched = (model: ModelEntry) => {
     setFetchedModels((prev) =>
       prev.find((m) => m.id === model.id) ? prev : [...prev, model],
     );
   };
 
-  const handleOptimisticActivation = async (providerName, keyId) => {
+  const handleOptimisticActivation = async (providerName: string, keyId: string) => {
     setKeys((prev) =>
       prev.map((k) =>
         k.provider === providerName ? { ...k, is_active: k.id === keyId } : k,
@@ -919,10 +920,7 @@ const ModelsSection = () => {
           onClick={() => setActiveProvider(null)}
           className="flex items-center gap-2 text-[13px] font-medium text-placeholder hover:text-card-text transition-colors mb-4 group"
         >
-          <ArrowLeft
-            size={14}
-            className="group-hover:-translate-x-0.5 transition-transform"
-          />{" "}
+          <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />{" "}
           All Providers
         </button>
         <ProviderCard
@@ -942,10 +940,7 @@ const ModelsSection = () => {
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="relative">
-        <Search
-          size={14}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-placeholder"
-        />
+        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-placeholder" />
         <input
           type="text"
           placeholder="Search providers..."
@@ -978,16 +973,11 @@ const ModelsSection = () => {
               </div>
               <div className="flex items-center gap-2.5">
                 {isConfigured ? (
-                  <span className="text-[12px] text-accent font-medium">
-                    Active
-                  </span>
+                  <span className="text-[12px] text-accent font-medium">Active</span>
                 ) : (
                   <span className="text-[12px] text-placeholder">No key</span>
                 )}
-                <ChevronRight
-                  size={15}
-                  className="text-placeholder group-hover:text-card-text transition-colors"
-                />
+                <ChevronRight size={15} className="text-placeholder group-hover:text-card-text transition-colors" />
               </div>
             </button>
           );
@@ -1007,30 +997,43 @@ const ModelsSection = () => {
 // ==========================================
 // MAIN SETTINGS PAGE
 // ==========================================
-const NAV_ITEMS = [
+interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { id: "account", label: "Account", icon: User },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "models", label: "Models & APIs", icon: Key },
 ];
 
-const URL_TO_SECTION = {
+const URL_TO_SECTION: Record<string, string> = {
   account: "account",
   appearance: "appearance",
   providers: "models",
 };
 
-const SECTION_TO_URL = {
+const SECTION_TO_URL: Record<string, string> = {
   account: "/settings/account",
   appearance: "/settings/appearance",
   models: "/settings/providers",
 };
+
+interface SettingsPageProps {
+  darkMode: boolean;
+  onToggleDark: (val: boolean) => void;
+  session: Session;
+  setSidebarOpen?: (val: boolean) => void;
+}
 
 export const SettingsPage = ({
   darkMode,
   onToggleDark,
   session,
   setSidebarOpen,
-}) => {
+}: SettingsPageProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(false);
@@ -1045,15 +1048,12 @@ export const SettingsPage = ({
   const urlSegment = location.pathname.split("/settings/")[1];
   const isRootSettings = !urlSegment;
   const activeSection = URL_TO_SECTION[urlSegment] ?? "account";
-  const activeSectionLabel = NAV_ITEMS.find(
-    (n) => n.id === activeSection,
-  )?.label;
+  const activeSectionLabel = NAV_ITEMS.find((n) => n.id === activeSection)?.label;
 
-  const goToSection = (id) => {
+  const goToSection = (id: string) => {
     navigate(SECTION_TO_URL[id]);
   };
 
-  // Get profile info for mobile hub
   const displayName =
     session?.user?.user_metadata?.["Display name"] ||
     session?.user?.user_metadata?.full_name ||
@@ -1061,7 +1061,7 @@ export const SettingsPage = ({
     session?.user?.email?.split("@")[0] ||
     "User";
 
-  const getInitials = (name) => {
+  const getInitials = (name: string) => {
     if (!name) return "U";
     const parts = name.trim().split(" ");
     if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
@@ -1077,10 +1077,7 @@ export const SettingsPage = ({
             onClick={() => navigate("/new")}
             className="flex items-center gap-2 text-[13px] text-placeholder hover:text-card-text transition-colors group mb-7"
           >
-            <ArrowLeft
-              size={14}
-              className="group-hover:-translate-x-0.5 transition-transform"
-            />{" "}
+            <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />{" "}
             Back to Chat
           </button>
           <h2 className="text-[28px] font-semibold text-card-text font-serif">
@@ -1099,12 +1096,7 @@ export const SettingsPage = ({
                   : "text-card-text hover:bg-card-hover/60"
               }`}
             >
-              <Icon
-                size={16}
-                className={
-                  activeSection === id ? "text-accent" : "text-placeholder"
-                }
-              />
+              <Icon size={16} className={activeSection === id ? "text-accent" : "text-placeholder"} />
               <span className="text-[14px]">{label}</span>
             </button>
           ))}
@@ -1116,7 +1108,6 @@ export const SettingsPage = ({
         {/* MOBILE ROOT SETTINGS HUB */}
         {isMobile && isRootSettings && (
           <div className="flex flex-col w-full h-full animate-in fade-in duration-200">
-            {/* Mobile Hub Header */}
             <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border-main bg-card shrink-0">
               <button
                 onClick={() => setSidebarOpen?.(true)}
@@ -1127,12 +1118,10 @@ export const SettingsPage = ({
               <h2 className="text-[18px] font-semibold text-card-text font-serif">
                 Settings
               </h2>
-              <div className="w-10" /> {/* Spacer */}
+              <div className="w-10" />
             </div>
 
-            {/* Mobile Hub Content */}
             <div className="p-4 space-y-4">
-              {/* Profile Card Blob */}
               <div className="bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
                 <div className="flex items-center gap-4 p-5 border-b border-border-main">
                   <div className="w-14 h-14 bg-[#2c2a27] dark:bg-[#c2c0b6] text-white dark:text-[#1a1918] rounded-full flex items-center justify-center text-[18px] font-medium shrink-0">
@@ -1152,88 +1141,66 @@ export const SettingsPage = ({
                   className="w-full flex items-center justify-between p-4 hover:bg-card-hover transition-colors group"
                 >
                   <div className="flex items-center gap-3 text-card-text group-hover:text-card-text-hover">
-                    <User
-                      size={18}
-                      className="text-placeholder group-hover:text-accent transition-colors"
-                    />
-                    <span className="text-[15px] font-medium">
-                      Account Settings
-                    </span>
+                    <User size={18} className="text-placeholder group-hover:text-accent transition-colors" />
+                    <span className="text-[15px] font-medium">Account Settings</span>
                   </div>
                   <ChevronRight size={18} className="text-placeholder" />
                 </button>
               </div>
 
-              {/* Other Navigation Blob */}
               <div className="bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
-                {NAV_ITEMS.filter((n) => n.id !== "account").map(
-                  (item, idx) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => goToSection(item.id)}
-                        className={`w-full flex items-center justify-between p-4 hover:bg-card-hover transition-colors group ${
-                          idx !== 0 ? "border-t border-border-main" : ""
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 text-card-text group-hover:text-card-text-hover">
-                          <Icon
-                            size={18}
-                            className="text-placeholder group-hover:text-accent transition-colors"
-                          />
-                          <span className="text-[15px] font-medium">
-                            {item.label}
-                          </span>
-                        </div>
-                        <ChevronRight size={18} className="text-placeholder" />
-                      </button>
-                    );
-                  },
-                )}
+                {NAV_ITEMS.filter((n) => n.id !== "account").map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => goToSection(item.id)}
+                      className={`w-full flex items-center justify-between p-4 hover:bg-card-hover transition-colors group ${
+                        idx !== 0 ? "border-t border-border-main" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 text-card-text group-hover:text-card-text-hover">
+                        <Icon size={18} className="text-placeholder group-hover:text-accent transition-colors" />
+                        <span className="text-[15px] font-medium">{item.label}</span>
+                      </div>
+                      <ChevronRight size={18} className="text-placeholder" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
-        {/* DETAIL VIEWS (Always shown on Desktop, Only shown on Mobile when NOT on root) */}
+        {/* DETAIL VIEWS */}
         {(!isMobile || !isRootSettings) && (
           <div className="max-w-2xl mx-auto w-full px-4 md:px-8 pt-4 md:pt-14 pb-24 animate-in fade-in slide-in-from-right-4 md:slide-in-from-bottom-2 duration-300">
-            {/* Mobile Detail Header with Back Button */}
             {isMobile && !isRootSettings && (
               <div className="flex items-center justify-between mb-6">
                 <button
                   onClick={() => navigate("/settings")}
                   className="p-2 -ml-2 flex items-center gap-2 text-[14px] font-medium text-placeholder hover:text-card-text transition-colors group"
                 >
-                  <ArrowLeft
-                    size={24}
-                    className="group-hover:-translate-x-0.5 transition-transform"
-                  />{" "}
+                  <ArrowLeft size={24} className="group-hover:-translate-x-0.5 transition-transform" />{" "}
                 </button>
                 <h1 className="text-[18px] font-semibold text-card-text font-serif">
                   {activeSectionLabel}
                 </h1>
-                <div className="w-10" /> {/* Spacer */}
+                <div className="w-10" />
               </div>
             )}
 
-            {/* Desktop Section Title */}
             <div className="hidden md:block mb-8">
               <h1 className="text-[30px] font-semibold text-card-text font-serif">
                 {activeSectionLabel}
               </h1>
             </div>
 
-            {/* Content Injection */}
             {activeSection === "account" && (
               <AccountSection session={session} />
             )}
             {activeSection === "appearance" && (
-              <AppearanceSection
-                darkMode={darkMode}
-                onToggleDark={onToggleDark}
-              />
+              <AppearanceSection darkMode={darkMode} onToggleDark={onToggleDark} />
             )}
             {activeSection === "models" && <ModelsSection />}
           </div>

@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { Square } from "lucide-react";
 
+interface VoiceRecordingIndicatorProps {
+  isRecording: boolean;
+  isTranscribing: boolean;
+  onStop: () => void;
+}
+
 export const VoiceRecordingIndicator = ({
   isRecording,
   isTranscribing,
   onStop,
-}) => {
+}: VoiceRecordingIndicatorProps) => {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -27,13 +33,11 @@ export const VoiceRecordingIndicator = ({
       <div
         className="pointer-events-auto flex items-center gap-3 bg-inputcard border border-border-main rounded-2xl px-5 py-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
         style={{
-          boxShadow:
-            "0 0 0 1px var(--color-border-main), 0 8px 32px rgba(0,0,0,0.18)",
+          boxShadow: "0 0 0 1px var(--color-border-main), 0 8px 32px rgba(0,0,0,0.18)",
         }}
       >
         {isTranscribing ? (
           <>
-            {/* Transcribing state */}
             <div className="flex gap-1 items-center">
               {[0, 1, 2].map((i) => (
                 <div
@@ -49,14 +53,11 @@ export const VoiceRecordingIndicator = ({
           </>
         ) : (
           <>
-            {/* Recording state */}
             <div className="relative flex items-center justify-center w-5 h-5">
-              {/* Pulse rings */}
               <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-20 animate-ping" />
               <span className="relative w-2.5 h-2.5 rounded-full bg-accent" />
             </div>
 
-            {/* Waveform bars */}
             <div className="flex items-center gap-[3px] h-5">
               {[3, 6, 9, 6, 11, 8, 4, 10, 7, 5].map((h, i) => (
                 <div

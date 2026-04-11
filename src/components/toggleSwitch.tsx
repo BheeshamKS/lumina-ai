@@ -1,4 +1,10 @@
-export const ToggleSwitch = ({ isOn, onToggle, color }) => {
+interface ToggleSwitchProps {
+  isOn: boolean;
+  onToggle: () => void;
+  color?: string;
+}
+
+export const ToggleSwitch = ({ isOn, onToggle, color }: ToggleSwitchProps) => {
   return (
     <button
       role="switch"
@@ -19,7 +25,6 @@ export const ToggleSwitch = ({ isOn, onToggle, color }) => {
         padding: 0,
       }}
     >
-      {/* Track inner shadow for depth */}
       <span
         style={{
           position: "absolute",
@@ -29,7 +34,6 @@ export const ToggleSwitch = ({ isOn, onToggle, color }) => {
           pointerEvents: "none",
         }}
       />
-      {/* Thumb */}
       <span
         style={{
           position: "absolute",

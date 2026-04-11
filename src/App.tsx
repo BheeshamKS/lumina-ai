@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./utils/supabase";
 
 import { Sidebar } from "./components/sidebar";
@@ -17,12 +18,11 @@ function App() {
   const [darkMode, setDarkMode] = useState(true);
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    // On mobile, default closed; on desktop, use saved pref
     if (typeof window !== "undefined" && window.innerWidth < 768) return false;
     return localStorage.getItem("lumina_sidebar") === "true";
   });
 
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -40,8 +40,7 @@ function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    // Only persist sidebar state on desktop
-    if (!isMobile) localStorage.setItem("lumina_sidebar", sidebarOpen);
+    if (!isMobile) localStorage.setItem("lumina_sidebar", String(sidebarOpen));
   }, [sidebarOpen, isMobile]);
 
   useEffect(() => {

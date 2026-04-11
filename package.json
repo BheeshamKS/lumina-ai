@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
@@ -33,13 +34,18 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/node": "^25.6.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@vercel/node": "^5.7.4",
     "@vitejs/plugin-react-swc": "^4.2.2",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1",
     "vite": "^8.0.0-beta.13"
   },
   "overrides": {

@@ -1,9 +1,13 @@
-export const Logo = ({ className = "w-10 h-10" }) => {
+interface LogoProps {
+  className?: string;
+}
+
+export const Logo = ({ className = "w-10 h-10" }: LogoProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
-      className={className} // Lets you pass Tailwind sizing/margins easily!
+      className={className}
     >
       <defs>
         <linearGradient id="zapGradient" x1="0%" y1="0%" x2="100%" y2="100%">

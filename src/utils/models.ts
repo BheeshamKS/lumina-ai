@@ -1,26 +1,37 @@
 import { supabase } from "./supabase";
+import type { ModelEntry } from "../types";
 
 // ==========================================
 // PROVIDER FETCH CONFIG
 // ==========================================
-export const PROVIDER_FETCH_CONFIG = {
+
+interface ProviderFetchConfig {
+  endpoint: string;
+  authHeader: (key: string) => Record<string, string>;
+  parseModels: (data: unknown) => ModelEntry[];
+}
+
+export const PROVIDER_FETCH_CONFIG: Record<string, ProviderFetchConfig> = {
   OpenRouter: {
     endpoint: "https://openrouter.ai/api/v1/models",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-    parseModels: (data) =>
-      data.data.map((m) => ({
+    parseModels: (data) => {
+      const d = data as { data: Array<{ id: string; name?: string; pricing?: { prompt: string } }> };
+      return d.data.map((m) => ({
         id: m.id,
         name: m.name || m.id,
         provider: "OpenRouter",
         type: m.pricing?.prompt === "0" ? "Free" : "Paid",
         isFetched: true,
-      })),
+      }));
+    },
   },
   Google: {
     endpoint: "https://generativelanguage.googleapis.com/v1beta/models",
     authHeader: (key) => ({ "x-goog-api-key": key }),
-    parseModels: (data) =>
-      (data.models || [])
+    parseModels: (data) => {
+      const d = data as { models?: Array<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }> };
+      return (d.models || [])
         .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
         .map((m) => ({
           id: m.name.replace("models/", ""),
@@ -28,25 +39,29 @@ export const PROVIDER_FETCH_CONFIG = {
           provider: "Google",
           type: "API",
           isFetched: true,
-        })),
+        }));
+    },
   },
   Groq: {
     endpoint: "https://api.groq.com/openai/v1/models",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-    parseModels: (data) =>
-      data.data.map((m) => ({
+    parseModels: (data) => {
+      const d = data as { data: Array<{ id: string }> };
+      return d.data.map((m) => ({
         id: m.id,
         name: m.id,
         provider: "Groq",
         type: "Free",
         isFetched: true,
-      })),
+      }));
+    },
   },
   OpenAI: {
     endpoint: "https://api.openai.com/v1/models",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-    parseModels: (data) =>
-      data.data
+    parseModels: (data) => {
+      const d = data as { data: Array<{ id: string }> };
+      return d.data
         .filter((m) => m.id.startsWith("gpt") || m.id.startsWith("o1") || m.id.startsWith("o3"))
         .map((m) => ({
           id: m.id,
@@ -54,39 +69,43 @@ export const PROVIDER_FETCH_CONFIG = {
           provider: "OpenAI",
           type: "Paid",
           isFetched: true,
-        })),
+        }));
+    },
   },
   Mistral: {
     endpoint: "https://api.mistral.ai/v1/models",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-    parseModels: (data) =>
-      data.data.map((m) => ({
+    parseModels: (data) => {
+      const d = data as { data: Array<{ id: string }> };
+      return d.data.map((m) => ({
         id: m.id,
         name: m.id,
         provider: "Mistral",
         type: "Paid",
         isFetched: true,
-      })),
+      }));
+    },
   },
   DeepSeek: {
     endpoint: "https://api.deepseek.com/models",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-    parseModels: (data) =>
-      data.data.map((m) => ({
+    parseModels: (data) => {
+      const d = data as { data: Array<{ id: string }> };
+      return d.data.map((m) => ({
         id: m.id,
         name: m.id,
         provider: "DeepSeek",
         type: "Paid",
         isFetched: true,
-      })),
+      }));
+    },
   },
 };
 
 // ==========================================
-// MODEL REGISTRY — free + popular only
-// Everything else is fetched via Browse Models
+// MODEL REGISTRY
 // ==========================================
-export const MODEL_REGISTRY = [
+export const MODEL_REGISTRY: ModelEntry[] = [
   // ── GOOGLE ──
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google", type: "Free (Fast)", isDefault: true },
   { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "Google", type: "Free (Strict Limit)", isDefault: true },
@@ -133,12 +152,12 @@ export const MODEL_REGISTRY = [
   { id: "x-ai/grok-3-beta", name: "Grok 3", provider: "OpenRouter", type: "Paid (Flagship)", isDefault: false },
 ];
 
-export const GUEST_DEFAULT_MODEL = MODEL_REGISTRY.find((m) => m.isGuestModel);
+export const GUEST_DEFAULT_MODEL = MODEL_REGISTRY.find((m) => m.isGuestModel) as ModelEntry;
 
 // ==========================================
-// FETCHED MODELS — persisted in Supabase
+// FETCHED MODELS
 // ==========================================
-export const getUserFetchedModels = async () => {
+export const getUserFetchedModels = async (): Promise<ModelEntry[]> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return [];
 
@@ -148,7 +167,7 @@ export const getUserFetchedModels = async () => {
     .eq("user_id", session.user.id);
 
   if (error) return [];
-  return (data || []).map((m) => ({
+  return ((data as Array<{ model_id: string; model_name: string; provider: string; model_type?: string }>) || []).map((m) => ({
     id: m.model_id,
     name: m.model_name,
     provider: m.provider,
@@ -157,7 +176,7 @@ export const getUserFetchedModels = async () => {
   }));
 };
 
-export const saveFetchedModel = async (model) => {
+export const saveFetchedModel = async (model: ModelEntry): Promise<void> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return;
 
@@ -170,7 +189,7 @@ export const saveFetchedModel = async (model) => {
   }, { onConflict: "user_id,model_id" });
 };
 
-export const removeFetchedModel = async (modelId) => {
+export const removeFetchedModel = async (modelId: string): Promise<void> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return;
 
@@ -181,14 +200,14 @@ export const removeFetchedModel = async (modelId) => {
     .eq("model_id", modelId);
 };
 
-export const getAllModels = async () => {
+export const getAllModels = async (): Promise<ModelEntry[]> => {
   const fetched = await getUserFetchedModels();
   const fetchedIds = new Set(fetched.map((m) => m.id));
   const registry = MODEL_REGISTRY.filter((m) => !fetchedIds.has(m.id));
   return [...registry, ...fetched];
 };
 
-export const getEnabledModels = async () => {
+export const getEnabledModels = async (): Promise<string[]> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return [GUEST_DEFAULT_MODEL.id];
 
@@ -197,13 +216,13 @@ export const getEnabledModels = async () => {
     .select("model_id");
 
   if (data && data.length > 0) {
-    return data.map((d) => d.model_id);
+    return (data as Array<{ model_id: string }>).map((d) => d.model_id);
   }
 
   return MODEL_REGISTRY.filter((m) => m.isDefault && !m.isGuestModel).map((m) => m.id);
 };
 
-export const toggleModelEnabled = async (modelId, isEnabled) => {
+export const toggleModelEnabled = async (modelId: string, isEnabled: boolean): Promise<void> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return;
 

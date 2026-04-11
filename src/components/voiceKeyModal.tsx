@@ -2,7 +2,13 @@ import { useState } from "react";
 import { X, Mic, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { addApiKey } from "../utils/apiKeys";
 
-export const VoiceKeyModal = ({ isOpen, onClose, onSuccess }) => {
+interface VoiceKeyModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+export const VoiceKeyModal = ({ isOpen, onClose, onSuccess }: VoiceKeyModalProps) => {
   const [apiKey, setApiKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +35,7 @@ export const VoiceKeyModal = ({ isOpen, onClose, onSuccess }) => {
       onClose();
       setApiKey("");
     } catch (err) {
-      setError(err.message || "Failed to save key. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to save key. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -38,7 +44,6 @@ export const VoiceKeyModal = ({ isOpen, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-app/80 backdrop-blur-sm px-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-sm bg-inputcard border border-border-main rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-        {/* Close */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-1.5 text-placeholder hover:text-card-text transition-colors rounded-lg hover:bg-card-hover"
@@ -46,7 +51,6 @@ export const VoiceKeyModal = ({ isOpen, onClose, onSuccess }) => {
           <X size={16} />
         </button>
 
-        {/* Icon + Title */}
         <div className="flex flex-col items-center mb-5 text-center">
           <div className="w-11 h-11 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-3">
             <Mic size={20} className="text-accent" />
@@ -55,12 +59,10 @@ export const VoiceKeyModal = ({ isOpen, onClose, onSuccess }) => {
             Add Groq key for Voice
           </h2>
           <p className="text-[12px] text-placeholder mt-1.5 leading-relaxed">
-            Voice mode uses Groq's Whisper (speech→text) and TTS (text→speech).
-            Free to use.
+            Voice mode uses Groq's Whisper (speech→text) and TTS (text→speech). Free to use.
           </p>
         </div>
 
-        {/* Get key link */}
         <a
           href="https://console.groq.com/keys"
           target="_blank"
@@ -71,7 +73,6 @@ export const VoiceKeyModal = ({ isOpen, onClose, onSuccess }) => {
           Get your free Groq API key
         </a>
 
-        {/* Input */}
         <div className="relative mb-3">
           <input
             type={showKey ? "text" : "password"}
@@ -99,7 +100,6 @@ export const VoiceKeyModal = ({ isOpen, onClose, onSuccess }) => {
           </p>
         )}
 
-        {/* Actions */}
         <div className="flex gap-2">
           <button
             onClick={onClose}

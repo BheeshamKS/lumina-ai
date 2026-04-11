@@ -1,22 +1,24 @@
 /**
- * /api/tts.js — Groq TTS
+ * /api/tts.ts — Groq TTS
  * Reads groqKey from JSON body.
  */
 
-export default async function handler(req, res) {
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-groq-key");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method === "OPTIONS") { res.status(200).end(); return; }
+  if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
 
-  // Read key from body (your ChatPage sends it there) or header fallback
-  const groqKey = req.body?.groqKey || req.headers["x-groq-key"];
-  if (!groqKey) return res.status(401).json({ error: "No Groq API key provided" });
+  const body = req.body as { groqKey?: string; text?: string } | undefined;
+  const groqKey = body?.groqKey || req.headers["x-groq-key"];
+  if (!groqKey) { res.status(401).json({ error: "No Groq API key provided" }); return; }
 
-  const text = req.body?.text;
-  if (!text?.trim()) return res.status(400).json({ error: "No text provided" });
+  const text = body?.text;
+  if (!text?.trim()) { res.status(400).json({ error: "No text provided" }); return; }
 
   try {
     const groqResponse = await fetch("https://api.groq.com/openai/v1/audio/speech", {
@@ -34,18 +36,19 @@ export default async function handler(req, res) {
     });
 
     if (!groqResponse.ok) {
-      const errData = await groqResponse.json().catch(() => ({}));
-      return res.status(groqResponse.status).json({
+      const errData = await groqResponse.json().catch(() => ({})) as { error?: { message?: string } };
+      res.status(groqResponse.status).json({
         error: errData?.error?.message || `Groq TTS error ${groqResponse.status}`,
       });
+      return;
     }
 
     const audioBuffer = await groqResponse.arrayBuffer();
     res.setHeader("Content-Type", "audio/wav");
     res.setHeader("Content-Length", audioBuffer.byteLength);
-    return res.status(200).end(Buffer.from(audioBuffer));
+    res.status(200).end(Buffer.from(audioBuffer));
   } catch (err) {
     console.error("TTS error:", err);
-    return res.status(500).json({ error: err.message || "TTS failed" });
+    res.status(500).json({ error: err instanceof Error ? err.message : "TTS failed" });
   }
 }
